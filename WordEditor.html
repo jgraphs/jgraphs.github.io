@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Editor Word Pro</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #F0EEE9;
+  --surface:   #FAFAF8;
+  --panel:     #FFFFFF;
+  --border:    #DDD9D2;
+  --text:      #18180F;
+  --muted:     #7A7768;
+  --accent:    #1D4ED8;
+  --accent-lt: #EEF2FF;
+  --danger:    #B91C1C;
+  --success:   #15803D;
+  --warn:      #92400E;
+  --toolbar-h: 44px;
+  --sidebar-w: 272px;
+  --radius:    5px;
+  --shadow:    0 1px 2px rgba(0,0,0,.06), 0 3px 10px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111110;--surface:#1A1A18;--panel:#222220;--border:#2E2D2A;
+  --text:#EDEBE3;--muted:#7A7868;--accent:#6B8FF7;--accent-lt:#1A2040;
+  --danger:#EF4444;--success:#22C55E;
+}}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+/* ── Header ─────────────────────────────────────────── */
+header{
+  height:48px;background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;padding:0 16px;flex-shrink:0;
+  position:relative;z-index:20
+}
+.brand{font-size:14px;font-weight:600;letter-spacing:-.3px;margin-right:4px}
+.brand em{color:var(--accent);font-style:normal}
+.hdr-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+.hdr-btn{
+  display:flex;align-items:center;gap:6px;padding:5px 10px;
+  background:none;border:1px solid transparent;border-radius:var(--radius);
+  cursor:pointer;font-size:12.5px;font-family:inherit;color:var(--muted);
+  transition:background .12s,border-color .12s,color .12s
+}
+.hdr-btn:hover{background:var(--bg);border-color:var(--border);color:var(--text)}
+.hdr-btn:disabled{opacity:.35;cursor:not-allowed}
+.hdr-btn svg{flex-shrink:0}
+.hdr-spacer{flex:1}
+kbd{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;
+  padding:1px 5px;background:var(--bg);border:1px solid var(--border);
+  border-radius:3px;color:var(--muted)
+}
+
+/* ── Layout ──────────────────────────────────────────── */
+.workspace{display:flex;flex:1;overflow:hidden}
+
+/* ── Sidebar ─────────────────────────────────────────── */
+aside{
+  width:var(--sidebar-w);background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;flex-shrink:0
+}
+.sidebar-body{flex:1;overflow-y:auto}
+.sec{padding:14px;border-bottom:1px solid var(--border)}
+.sec-title{
+  font-size:10.5px;font-weight:500;color:var(--muted);
+  letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px
+}
+
+/* Drop zone */
+#dropzone{
+  border:1.5px dashed var(--border);border-radius:var(--radius);
+  padding:18px 12px;text-align:center;cursor:pointer;
+  background:var(--bg);transition:border-color .15s,background .15s
+}
+#dropzone:hover,#dropzone.over{border-color:var(--accent);background:var(--accent-lt)}
+#dropzone p{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:6px}
+#dropzone strong{color:var(--accent)}
+#dropzone input{display:none}
+
+#file-badge{
+  display:none;margin-top:8px;padding:8px 10px;
+  background:var(--accent-lt);border:1px solid var(--accent);
+  border-radius:var(--radius);font-size:12px
+}
+#file-badge.on{display:block}
+#file-badge .fname{font-weight:500;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#file-badge .fsize{color:var(--muted);font-size:11px;margin-top:1px}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:9px 10px}
+.stat-n{font-size:18px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:var(--text)}
+.stat-l{font-size:10.5px;color:var(--muted);margin-top:1px}
+
+/* Font panel */
+.font-row{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.font-row label{font-size:11.5px;color:var(--muted);white-space:nowrap;width:52px;flex-shrink:0}
+select.ctrl,input.ctrl{
+  flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg);color:var(--text);font-size:12.5px;font-family:inherit;
+  outline:none;transition:border-color .15s
+}
+select.ctrl:focus,input.ctrl:focus{border-color:var(--accent)}
+input[type=color].ctrl{padding:2px;height:30px;cursor:pointer}
+input[type=range].ctrl{padding:0;height:30px}
+
+/* Find/replace */
+.fr-group{display:flex;flex-direction:column;gap:6px}
+.fr-group input{
+  width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg);color:var(--text);font-size:12.5px;font-family:inherit;
+  outline:none;transition:border-color .15s
+}
+.fr-group input:focus{border-color:var(--accent)}
+.fr-group input::placeholder{color:var(--muted)}
+.fr-info{font-size:11px;color:var(--muted);text-align:right;min-height:14px}
+
+/* Buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:7px 11px;border-radius:var(--radius);cursor:pointer;
+  font-size:12.5px;font-family:inherit;font-weight:500;transition:opacity .12s,background .12s
+}
+.btn-primary{background:var(--accent);color:#fff;border:none;width:100%}
+.btn-primary:hover{opacity:.88}
+.btn-ghost{background:none;border:1px solid var(--border);color:var(--text);width:100%}
+.btn-ghost:hover{background:var(--bg)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* Image list */
+.img-list{display:flex;flex-direction:column;gap:6px}
+.img-item{
+  display:flex;align-items:center;gap:8px;padding:7px 9px;
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius)
+}
+.img-thumb{width:32px;height:32px;object-fit:cover;border-radius:3px;flex-shrink:0}
+.img-name{font-size:11.5px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.img-del{
+  background:none;border:none;cursor:pointer;color:var(--muted);
+  padding:2px;border-radius:3px;transition:color .12s
+}
+.img-del:hover{color:var(--danger)}
+.img-empty{font-size:12px;color:var(--muted);text-align:center;padding:8px 0}
+
+/* ── Toolbar ─────────────────────────────────────────── */
+.toolbar{
+  height:var(--toolbar-h);background:var(--panel);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 10px;gap:2px;flex-shrink:0;flex-wrap:nowrap;overflow-x:auto
+}
+.tb-btn{
+  display:flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border:none;border-radius:var(--radius);
+  background:none;cursor:pointer;color:var(--text);transition:background .1s;flex-shrink:0
+}
+.tb-btn:hover{background:var(--bg)}
+.tb-btn.active{background:var(--accent-lt);color:var(--accent)}
+.tb-sep{width:1px;height:20px;background:var(--border);margin:0 4px;flex-shrink:0}
+.tb-select{
+  padding:4px 7px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;
+  outline:none;height:30px;flex-shrink:0
+}
+.tb-color{
+  width:30px;height:30px;border:1px solid var(--border);border-radius:var(--radius);
+  padding:2px;background:var(--bg);cursor:pointer;flex-shrink:0
+}
+
+/* ── Editor canvas ───────────────────────────────────── */
+.canvas-wrap{flex:1;overflow:auto;background:var(--bg);display:flex;justify-content:center;padding:32px 24px}
+#editor{
+  background:var(--panel);box-shadow:var(--shadow);
+  width:100%;max-width:760px;min-height:calc(100% - 0px);
+  padding:56px 64px;outline:none;
+  font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.75;color:var(--text);
+  border-radius:2px
+}
+#editor:empty::before{content:attr(data-placeholder);color:var(--muted);pointer-events:none}
+#editor h1{font-size:26px;font-weight:700;margin:1em 0 .4em;line-height:1.25}
+#editor h2{font-size:20px;font-weight:600;margin:.9em 0 .35em;line-height:1.3}
+#editor h3{font-size:17px;font-weight:600;margin:.8em 0 .3em}
+#editor p{margin-bottom:.7em}
+#editor ul,#editor ol{padding-left:1.5em;margin-bottom:.7em}
+#editor li{margin-bottom:.25em}
+#editor table{border-collapse:collapse;width:100%;margin-bottom:1em}
+#editor td,#editor th{border:1px solid var(--border);padding:8px 12px;font-size:14px}
+#editor th{background:var(--bg);font-weight:600}
+#editor img{max-width:100%;border-radius:3px;display:block;margin:.5em 0}
+#editor blockquote{
+  border-left:3px solid var(--accent);margin:.7em 0;padding:.4em 1em;
+  background:var(--accent-lt);border-radius:0 var(--radius) var(--radius) 0;color:var(--muted)
+}
+#editor a{color:var(--accent)}
+#editor mark{background:#FEF08A;border-radius:2px}
+
+/* ── Toast ───────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:20px;left:50%;
+  transform:translateX(-50%) translateY(70px);
+  background:var(--text);color:var(--panel);
+  padding:9px 16px;border-radius:100px;font-size:13px;font-weight:500;
+  z-index:200;transition:transform .22s cubic-bezier(.34,1.56,.64,1);pointer-events:none
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.ok{background:var(--success)}
+#toast.err{background:var(--danger)}
+
+/* ── Modal ───────────────────────────────────────────── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;
+  display:none;align-items:center;justify-content:center;padding:20px
+}
+.overlay.open{display:flex}
+.modal{
+  background:var(--panel);border-radius:8px;padding:22px;width:100%;max-width:430px;
+  box-shadow:0 8px 32px rgba(0,0,0,.2)
+}
+.modal h2{font-size:15px;font-weight:600;margin-bottom:14px}
+.mf{margin-bottom:10px}
+.mf label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px;font-weight:500}
+.mf input,.mf textarea,.mf select{
+  width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;
+  outline:none;transition:border-color .15s
+}
+.mf input:focus,.mf textarea:focus,.mf select:focus{border-color:var(--accent)}
+.mf textarea{resize:vertical;min-height:80px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.mbtn{
+  padding:8px 14px;border-radius:var(--radius);cursor:pointer;
+  font-size:13px;font-family:inherit;font-weight:500;border:1px solid var(--border)
+}
+.mbtn-ghost{background:none;color:var(--text)}
+.mbtn-ghost:hover{background:var(--bg)}
+.mbtn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.mbtn-primary:hover{opacity:.88}
+
+@media(max-width:640px){
+  :root{--sidebar-w:100%}
+  .workspace{flex-direction:column}
+  aside{width:100%;max-height:200px;border-right:none;border-bottom:1px solid var(--border)}
+  #editor{padding:24px 16px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ── Header ─── -->
+<header>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="2" width="13" height="17" rx="2" fill="var(--accent)" opacity=".15"/>
+    <rect x="3" y="2" width="13" height="17" rx="2" stroke="var(--accent)" stroke-width="1.5"/>
+    <path d="M7 7h5M7 10h7M7 13h4" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+    <rect x="13" y="13" width="8" height="9" rx="1.5" fill="var(--accent)"/>
+    <path d="M15.5 16.8l1 1.8 2-2.8" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span class="brand">Word<em>Editor</em> Pro</span>
+  <div class="hdr-sep"></div>
+
+  <button class="hdr-btn" id="btn-open">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1"/><path d="M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
+    Abrir
+  </button>
+
+  <button class="hdr-btn" id="btn-new">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+    Nuevo
+  </button>
+
+  <div class="hdr-sep"></div>
+
+  <button class="hdr-btn" id="btn-undo" disabled title="Deshacer (Ctrl+Z)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg>
+    <kbd>Z</kbd>
+  </button>
+  <button class="hdr-btn" id="btn-redo" disabled title="Rehacer (Ctrl+Y)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 014-4h12"/></svg>
+    <kbd>Y</kbd>
+  </button>
+
+  <div class="hdr-spacer"></div>
+
+  <button class="hdr-btn" id="btn-save-html" disabled>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Exportar HTML
+  </button>
+  <button class="hdr-btn" id="btn-save-docx" disabled>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Guardar .docx
+  </button>
+
+  <input type="file" id="file-input" accept=".docx" style="display:none">
+</header>
+
+<!-- ── Workspace ─── -->
+<div class="workspace">
+
+  <!-- Sidebar -->
+  <aside>
+    <div class="sidebar-body">
+
+      <!-- File -->
+      <div class="sec">
+        <div class="sec-title">Archivo</div>
+        <div id="dropzone">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p>Arrastra un <strong>.docx</strong> aquí<br>o haz clic para seleccionar</p>
+          <input type="file" id="drop-input" accept=".docx">
+        </div>
+        <div id="file-badge">
+          <div class="fname" id="fname">—</div>
+          <div class="fsize" id="fsize"></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="sec">
+        <div class="sec-title">Estadísticas</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-n" id="sw">—</div><div class="stat-l">palabras</div></div>
+          <div class="stat"><div class="stat-n" id="sc">—</div><div class="stat-l">caracteres</div></div>
+          <div class="stat"><div class="stat-n" id="sp">—</div><div class="stat-l">párrafos</div></div>
+          <div class="stat"><div class="stat-n" id="si">—</div><div class="stat-l">imágenes</div></div>
+        </div>
+      </div>
+
+      <!-- Fonts & Colors -->
+      <div class="sec">
+        <div class="sec-title">Tipografía y color</div>
+        <div class="font-row">
+          <label>Fuente</label>
+          <select class="ctrl" id="font-family">
+            <option value="Inter, system-ui, sans-serif">Inter</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="'Times New Roman', serif">Times New Roman</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="'Courier New', monospace">Courier New</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+          </select>
+        </div>
+        <div class="font-row">
+          <label>Tamaño</label>
+          <input type="range" class="ctrl" id="font-size" min="11" max="24" value="15">
+          <span id="font-size-val" style="font-size:11px;color:var(--muted);width:28px;text-align:right;flex-shrink:0">15px</span>
+        </div>
+        <div class="font-row">
+          <label>Texto</label>
+          <input type="color" class="ctrl" id="color-text" value="#18180f">
+        </div>
+        <div class="font-row">
+          <label>Fondo</label>
+          <input type="color" class="ctrl" id="color-bg" value="#ffffff">
+        </div>
+        <div class="font-row">
+          <label>Interl.</label>
+          <input type="range" class="ctrl" id="line-height" min="120" max="220" value="175">
+          <span id="lh-val" style="font-size:11px;color:var(--muted);width:28px;text-align:right;flex-shrink:0">1.75</span>
+        </div>
+      </div>
+
+      <!-- Imágenes -->
+      <div class="sec">
+        <div class="sec-title">Imágenes</div>
+        <div id="img-list" class="img-list">
+          <div class="img-empty">Sin imágenes todavía</div>
+        </div>
+        <div style="margin-top:8px">
+          <input type="file" id="img-input" accept="image/*" style="display:none">
+          <button class="btn btn-ghost" id="btn-insert-img">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Insertar imagen
+          </button>
+        </div>
+      </div>
+
+      <!-- Find & Replace -->
+      <div class="sec">
+        <div class="sec-title">Buscar y reemplazar</div>
+        <div class="fr-group">
+          <input type="text" id="fr-find" placeholder="Buscar…">
+          <input type="text" id="fr-replace" placeholder="Reemplazar con…">
+          <div class="fr-info" id="fr-info"></div>
+          <button class="btn btn-primary" id="btn-replace">Reemplazar todo</button>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Editor -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+    <!-- Formatting toolbar -->
+    <div class="toolbar">
+      <!-- Block type -->
+      <select class="tb-select" id="tb-block" title="Tipo de bloque">
+        <option value="p">Párrafo</option>
+        <option value="h1">Título 1</option>
+        <option value="h2">Título 2</option>
+        <option value="h3">Título 3</option>
+        <option value="blockquote">Cita</option>
+      </select>
+      <div class="tb-sep"></div>
+      <!-- Bold, Italic, Underline, Strike -->
+      <button class="tb-btn" id="tb-bold" title="Negrita (Ctrl+B)" onclick="execCmd('bold')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 4h8a4 4 0 010 8H6z"/><path d="M6 12h9a4 4 0 010 8H6z"/></svg>
+      </button>
+      <button class="tb-btn" id="tb-italic" title="Cursiva (Ctrl+I)" onclick="execCmd('italic')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+      </button>
+      <button class="tb-btn" id="tb-underline" title="Subrayado (Ctrl+U)" onclick="execCmd('underline')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v7a6 6 0 006 6 6 6 0 006-6V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg>
+      </button>
+      <button class="tb-btn" id="tb-strike" title="Tachado" onclick="execCmd('strikeThrough')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"/><path d="M17.5 5.5A4.5 4.5 0 0013 4H11a4 4 0 000 8h2a4 4 0 010 8h-3a4.5 4.5 0 01-4.5-4.5"/></svg>
+      </button>
+      <div class="tb-sep"></div>
+      <!-- Align -->
+      <button class="tb-btn" title="Alinear izquierda" onclick="execCmd('justifyLeft')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+      </button>
+      <button class="tb-btn" title="Centrar" onclick="execCmd('justifyCenter')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+      </button>
+      <button class="tb-btn" title="Alinear derecha" onclick="execCmd('justifyRight')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="tb-sep"></div>
+      <!-- Lists -->
+      <button class="tb-btn" title="Lista viñetas" onclick="execCmd('insertUnorderedList')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg>
+      </button>
+      <button class="tb-btn" title="Lista numerada" onclick="execCmd('insertOrderedList')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
+      </button>
+      <div class="tb-sep"></div>
+      <!-- Color text (inline) -->
+      <input type="color" class="tb-color" id="tb-fgcolor" title="Color de texto" value="#18180f">
+      <input type="color" class="tb-color" id="tb-hlcolor" title="Resaltar texto" value="#fef08a">
+      <div class="tb-sep"></div>
+      <!-- Link -->
+      <button class="tb-btn" title="Insertar enlace" onclick="insertLink()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+      </button>
+      <!-- Clear format -->
+      <button class="tb-btn" title="Limpiar formato" onclick="execCmd('removeFormat')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/><line x1="3" y1="21" x2="21" y2="3" stroke="var(--danger)"/></svg>
+      </button>
+    </div>
+
+    <!-- Canvas -->
+    <div class="canvas-wrap">
+      <div id="editor" contenteditable="true" spellcheck="true"
+        data-placeholder="Comienza a escribir o abre un archivo .docx…">
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- New doc modal -->
+<div class="overlay" id="modal-new">
+  <div class="modal">
+    <h2>Nuevo documento</h2>
+    <div class="mf"><label>Título</label><input id="nm-title" placeholder="Sin título"></div>
+    <div class="mf"><label>Autor</label><input id="nm-author" placeholder="Autor"></div>
+    <div class="mf"><label>Contenido inicial</label><textarea id="nm-body" placeholder="Escribe aquí…"></textarea></div>
+    <div class="mf">
+      <label>Incluir tabla de ejemplo</label>
+      <select id="nm-table"><option value="no">No</option><option value="yes">Sí</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="mbtn mbtn-ghost" onclick="closeModal('modal-new')">Cancelar</button>
+      <button class="mbtn mbtn-primary" id="btn-create-doc">Crear</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ Helpers ══════════════════════════════════════════════════════════
+const $  = id => document.getElementById(id);
+const ed = $('editor');
+
+function toast(msg, type='') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = type ? `show ${type}` : 'show';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = '', 2600);
+}
+function closeModal(id) { $(id).classList.remove('open'); }
+function openModal(id)  { $(id).classList.add('open'); }
+function escX(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function updateStats() {
+  const text = ed.innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  $('sw').textContent = words.toLocaleString('es');
+  $('sc').textContent = text.replace(/\s/g,'').length.toLocaleString('es');
+  $('sp').textContent = ed.querySelectorAll('p,h1,h2,h3,h4,blockquote').length;
+  $('si').textContent = ed.querySelectorAll('img').length;
+}
+
+// ══ File loading ══════════════════════════════════════════════════════
+function setupFilePicker(inputEl) {
+  inputEl.addEventListener('change', () => {
+    if (inputEl.files[0]) loadDocx(inputEl.files[0]);
+  });
+}
+setupFilePicker($('drop-input'));
+setupFilePicker($('file-input'));
+
+$('btn-open').addEventListener('click', () => $('file-input').click());
+
+const dz = $('dropzone');
+dz.addEventListener('click', () => $('drop-input').click());
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f) loadDocx(f);
+});
+
+function loadDocx(file) {
+  if (!file.name.endsWith('.docx')) { toast('Solo se aceptan archivos .docx', 'err'); return; }
+  const r = new FileReader();
+  r.onload = e => {
+    mammoth.convertToHtml({ arrayBuffer: e.target.result }, {
+      convertImage: mammoth.images.inline(img => img.read('base64').then(d => ({
+        src: `data:${img.contentType};base64,${d}`
+      })))
+    }).then(res => {
+      ed.innerHTML = res.value || '<p></p>';
+      $('fname').textContent = file.name;
+      $('fsize').textContent = (file.size/1024).toFixed(1) + ' KB';
+      $('file-badge').classList.add('on');
+      $('btn-save-html').disabled = false;
+      $('btn-save-docx').disabled = false;
+      refreshImgList();
+      updateStats();
+      pushHistory();
+      toast('Documento cargado', 'ok');
+    }).catch(() => toast('Error al procesar el archivo', 'err'));
+  };
+  r.readAsArrayBuffer(file);
+}
+
+// ══ Formatting toolbar ════════════════════════════════════════════════
+function execCmd(cmd, val) {
+  ed.focus();
+  document.execCommand(cmd, false, val ?? null);
+  updateToolbarState();
+  updateStats();
+  scheduleHistory();
+}
+
+function updateToolbarState() {
+  ['bold','italic','underline','strikeThrough'].forEach(cmd => {
+    const id = {'bold':'tb-bold','italic':'tb-italic','underline':'tb-underline','strikeThrough':'tb-strike'}[cmd];
+    const el = $(id);
+    if (el) el.classList.toggle('active', document.queryCommandState(cmd));
+  });
+}
+
+document.addEventListener('selectionchange', updateToolbarState);
+
+// Block type
+$('tb-block').addEventListener('change', function() {
+  const val = this.value;
+  ed.focus();
+  if (val === 'blockquote') {
+    document.execCommand('formatBlock', false, 'blockquote');
+  } else {
+    document.execCommand('formatBlock', false, val);
+  }
+  scheduleHistory();
+});
+
+// Inline text color
+$('tb-fgcolor').addEventListener('input', function() {
+  execCmd('foreColor', this.value);
+});
+$('tb-hlcolor').addEventListener('input', function() {
+  execCmd('hiliteColor', this.value);
+});
+
+function insertLink() {
+  const url = prompt('URL del enlace:');
+  if (url) execCmd('createLink', url);
+}
+
+// ══ Undo / Redo ═══════════════════════════════════════════════════════
+const historyStack = [];
+let historyIdx = -1;
+let historyTimer;
+
+function pushHistory() {
+  const snap = ed.innerHTML;
+  if (historyStack[historyIdx] === snap) return;
+  historyStack.splice(historyIdx + 1);
+  historyStack.push(snap);
+  if (historyStack.length > 120) historyStack.shift();
+  historyIdx = historyStack.length - 1;
+  syncUndoRedo();
+}
+
+function scheduleHistory() {
+  clearTimeout(historyTimer);
+  historyTimer = setTimeout(pushHistory, 600);
+}
+
+function undo() {
+  if (historyIdx <= 0) return;
+  historyIdx--;
+  ed.innerHTML = historyStack[historyIdx] || '';
+  syncUndoRedo(); updateStats(); refreshImgList();
+}
+function redo() {
+  if (historyIdx >= historyStack.length - 1) return;
+  historyIdx++;
+  ed.innerHTML = historyStack[historyIdx] || '';
+  syncUndoRedo(); updateStats(); refreshImgList();
+}
+function syncUndoRedo() {
+  $('btn-undo').disabled = historyIdx <= 0;
+  $('btn-redo').disabled = historyIdx >= historyStack.length - 1;
+}
+
+$('btn-undo').addEventListener('click', undo);
+$('btn-redo').addEventListener('click', redo);
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+});
+
+ed.addEventListener('input', () => { scheduleHistory(); updateStats(); });
+ed.addEventListener('keyup', updateToolbarState);
+ed.addEventListener('mouseup', updateToolbarState);
+
+// Initial snapshot
+pushHistory();
+
+// ══ Typography & color controls ═══════════════════════════════════════
+$('font-family').addEventListener('change', function() {
+  ed.style.fontFamily = this.value; scheduleHistory();
+});
+$('font-size').addEventListener('input', function() {
+  ed.style.fontSize = this.value + 'px';
+  $('font-size-val').textContent = this.value + 'px';
+});
+$('color-text').addEventListener('input', function() {
+  ed.style.color = this.value;
+});
+$('color-bg').addEventListener('input', function() {
+  ed.style.background = this.value;
+});
+$('line-height').addEventListener('input', function() {
+  const v = (this.value / 100).toFixed(2);
+  ed.style.lineHeight = v;
+  $('lh-val').textContent = v;
+});
+
+// ══ Image insertion ═══════════════════════════════════════════════════
+$('btn-insert-img').addEventListener('click', () => $('img-input').click());
+$('img-input').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    ed.focus();
+    const img = document.createElement('img');
+    img.src = e.target.result;
+    img.style.maxWidth = '100%';
+    const sel = window.getSelection();
+    if (sel.rangeCount) {
+      const range = sel.getRangeAt(0);
+      range.collapse(false);
+      range.insertNode(img);
+      range.setStartAfter(img);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      ed.appendChild(img);
+    }
+    refreshImgList();
+    updateStats();
+    pushHistory();
+    $('btn-save-html').disabled = false;
+    $('btn-save-docx').disabled = false;
+    toast('Imagen insertada', 'ok');
+  };
+  r.readAsDataURL(file);
+  this.value = '';
+});
+
+function refreshImgList() {
+  const list = $('img-list');
+  const imgs = ed.querySelectorAll('img');
+  if (!imgs.length) {
+    list.innerHTML = '<div class="img-empty">Sin imágenes todavía</div>';
+    $('si').textContent = '0';
+    return;
+  }
+  list.innerHTML = '';
+  imgs.forEach((img, i) => {
+    const row = document.createElement('div');
+    row.className = 'img-item';
+    row.innerHTML = `
+      <img class="img-thumb" src="${img.src.length > 200 ? img.src.substring(0,200)+'…' : img.src}" alt="">
+      <span class="img-name">imagen_${i+1}</span>
+      <button class="img-del" title="Eliminar imagen">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      </button>`;
+    row.querySelector('.img-thumb').src = img.src;
+    row.querySelector('.img-del').addEventListener('click', () => {
+      img.remove(); refreshImgList(); updateStats(); pushHistory();
+      toast('Imagen eliminada');
+    });
+    // Click thumbnail to select image in editor
+    row.querySelector('.img-thumb').addEventListener('click', () => {
+      img.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      img.style.outline = '2px solid var(--accent)';
+      setTimeout(() => img.style.outline = '', 1500);
+    });
+    list.appendChild(row);
+  });
+  $('si').textContent = imgs.length;
+}
+
+// ══ Find & Replace ════════════════════════════════════════════════════
+let frTimer;
+$('fr-find').addEventListener('input', () => {
+  clearTimeout(frTimer);
+  frTimer = setTimeout(highlightMatches, 300);
+});
+
+function highlightMatches() {
+  const q = $('fr-find').value.trim();
+  if (!q) { $('fr-info').textContent = ''; return; }
+  const text = ed.innerText;
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+  const count = (text.match(re) || []).length;
+  $('fr-info').textContent = count ? `${count} coincidencia${count>1?'s':''}` : 'Sin resultados';
+}
+
+$('btn-replace').addEventListener('click', () => {
+  const find = $('fr-find').value.trim();
+  const repl = $('fr-replace').value;
+  if (!find) { toast('Escribe un texto a buscar', 'err'); return; }
+
+  const walker = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  let count = 0;
+
+  nodes.forEach(node => {
+    const re = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+    if (!re.test(node.textContent)) return;
+    count += (node.textContent.match(re) || []).length;
+    const span = document.createElement('span');
+    span.innerHTML = node.textContent.replace(re,
+      repl ? `<mark>${escX(repl)}</mark>` : '');
+    node.parentNode.replaceChild(span, node);
+  });
+
+  updateStats(); pushHistory(); $('fr-info').textContent = '';
+  toast(count ? `${count} reemplazo${count>1?'s':''}` : 'Sin resultados', count ? 'ok' : 'err');
+});
+
+// ══ New document ══════════════════════════════════════════════════════
+$('btn-new').addEventListener('click', () => openModal('modal-new'));
+document.querySelectorAll('.overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+);
+
+$('btn-create-doc').addEventListener('click', () => {
+  const title  = $('nm-title').value || 'Sin título';
+  const author = $('nm-author').value || 'Autor';
+  const body   = $('nm-body').value || '';
+  const table  = $('nm-table').value === 'yes';
+
+  ed.innerHTML = `<h1>${escX(title)}</h1>
+<p style="color:var(--muted);font-style:italic">Autor: ${escX(author)}</p>
+<p></p>
+${body.split('\n').filter(Boolean).map(l => `<p>${escX(l)}</p>`).join('\n') || '<p></p>'}
+${table ? `<p></p>
+<table><thead><tr><th>Columna 1</th><th>Columna 2</th><th>Columna 3</th></tr></thead>
+<tbody><tr><td>Dato A</td><td>Dato B</td><td>Dato C</td></tr>
+<tr><td>Dato D</td><td>Dato E</td><td>Dato F</td></tr></tbody></table>` : ''}
+<p></p>`;
+
+  $('fname').textContent = title + '.docx';
+  $('fsize').textContent = '';
+  $('file-badge').classList.add('on');
+  $('btn-save-html').disabled = false;
+  $('btn-save-docx').disabled = false;
+  closeModal('modal-new');
+  refreshImgList();
+  updateStats();
+  pushHistory();
+  toast('Documento creado', 'ok');
+});
+
+// ══ Export HTML ═══════════════════════════════════════════════════════
+$('btn-save-html').addEventListener('click', () => {
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Documento exportado</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 24px;line-height:1.75;color:#1a1917}
+h1,h2,h3{font-weight:700;margin:1.2em 0 .4em}h1{font-size:26px}h2{font-size:20px}h3{font-size:17px}
+p{margin-bottom:.8em}ul,ol{padding-left:1.5em;margin-bottom:.8em}
+table{border-collapse:collapse;width:100%;margin-bottom:1em}
+td,th{border:1px solid #ddd;padding:8px 12px}th{background:#f5f5f0;font-weight:600}
+img{max-width:100%;display:block;margin:.5em 0}
+blockquote{border-left:3px solid #1D4ED8;padding:.4em 1em;margin:.8em 0;color:#555}
+mark{background:#fef08a}a{color:#1D4ED8}
+</style>
+</head>
+<body>
+${ed.innerHTML}
+</body>
+</html>`;
+  saveAs(new Blob([html], { type:'text/html;charset=utf-8' }), 'documento.html');
+  toast('HTML exportado', 'ok');
+});
+
+// ══ Save as .docx ═════════════════════════════════════════════════════
+$('btn-save-docx').addEventListener('click', () => saveAsDocx());
+
+async function saveAsDocx() {
+  const JSZIP = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+  if (!window.JSZip) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = JSZIP; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  // Convert editor HTML to Open XML paragraphs (basic)
+  function htmlToOxml() {
+    const parts = [];
+    const nodes = ed.childNodes;
+    nodes.forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+        parts.push(`<w:p><w:r><w:t xml:space="preserve">${escX(node.textContent)}</w:t></w:r></w:p>`);
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      const tag = node.tagName.toLowerCase();
+      const text = escX(node.innerText || node.textContent || '');
+
+      if (['h1','h2','h3'].includes(tag)) {
+        const lvl = { h1:'Heading1', h2:'Heading2', h3:'Heading3' }[tag];
+        parts.push(`<w:p><w:pPr><w:pStyle w:val="${lvl}"/></w:pPr><w:r><w:t>${text}</w:t></w:r></w:p>`);
+      } else if (tag === 'blockquote') {
+        parts.push(`<w:p><w:r><w:rPr><w:i/><w:color w:val="555555"/></w:rPr><w:t>${text}</w:t></w:r></w:p>`);
+      } else if (tag === 'table') {
+        const rows = node.querySelectorAll('tr');
+        let tbl = `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/></w:tblPr><w:tblGrid>`;
+        const cols = rows[0] ? rows[0].querySelectorAll('td,th').length : 1;
+        const cw = Math.floor(9000 / cols);
+        for (let i = 0; i < cols; i++) tbl += `<w:gridCol w:w="${cw}"/>`;
+        tbl += '</w:tblGrid>';
+        rows.forEach(row => {
+          tbl += '<w:tr>';
+          row.querySelectorAll('td,th').forEach(cell => {
+            const bold = cell.tagName === 'TH' ? '<w:b/>' : '';
+            tbl += `<w:tc><w:tcPr><w:tcW w:w="${cw}" w:type="dxa"/></w:tcPr>
+              <w:p><w:r><w:rPr>${bold}</w:rPr><w:t>${escX(cell.innerText||'')}</w:t></w:r></w:p></w:tc>`;
+          });
+          tbl += '</w:tr>';
+        });
+        tbl += '</w:tbl>';
+        parts.push(tbl);
+      } else if (tag === 'ul') {
+        node.querySelectorAll('li').forEach(li => {
+          parts.push(`<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>
+            <w:r><w:t>${escX(li.innerText)}</w:t></w:r></w:p>`);
+        });
+      } else if (tag === 'ol') {
+        node.querySelectorAll('li').forEach(li => {
+          parts.push(`<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="2"/></w:numPr></w:pPr>
+            <w:r><w:t>${escX(li.innerText)}</w:t></w:r></w:p>`);
+        });
+      } else {
+        // p / div / span — inline formatting
+        let runs = '';
+        node.childNodes.forEach(child => {
+          if (child.nodeType === Node.TEXT_NODE) {
+            runs += `<w:r><w:t xml:space="preserve">${escX(child.textContent)}</w:t></w:r>`;
+          } else if (child.nodeType === Node.ELEMENT_NODE) {
+            const ct = child.tagName.toLowerCase();
+            let rpr = '';
+            if (ct === 'strong' || ct === 'b') rpr += '<w:b/>';
+            if (ct === 'em' || ct === 'i') rpr += '<w:i/>';
+            if (ct === 'u') rpr += '<w:u w:val="single"/>';
+            if (ct === 's') rpr += '<w:strike/>';
+            runs += `<w:r><w:rPr>${rpr}</w:rPr><w:t xml:space="preserve">${escX(child.innerText||child.textContent||'')}</w:t></w:r>`;
+          }
+        });
+        if (!runs && text) runs = `<w:r><w:t>${text}</w:t></w:r>`;
+        if (runs) parts.push(`<w:p>${runs}</w:p>`);
+      }
+    });
+    return parts.join('\n  ');
+  }
+
+  const zip = new JSZip();
+
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
+</Types>`);
+
+  zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+
+  zip.folder('word/_rels').file('document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>
+</Relationships>`);
+
+  zip.folder('word').file('styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:styleId="Normal" w:default="1">
+    <w:name w:val="Normal"/><w:rPr><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1">
+    <w:name w:val="heading 1"/><w:basedOn w:val="Normal"/>
+    <w:pPr><w:outlineLvl w:val="0"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="48"/><w:szCs w:val="48"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2">
+    <w:name w:val="heading 2"/><w:basedOn w:val="Normal"/>
+    <w:pPr><w:outlineLvl w:val="1"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="36"/><w:szCs w:val="36"/></w:rPr>
+  </w:style>
+  <w:style w:type="paragraph" w:styleId="Heading3">
+    <w:name w:val="heading 3"/><w:basedOn w:val="Normal"/>
+    <w:pPr><w:outlineLvl w:val="2"/></w:pPr>
+    <w:rPr><w:b/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr>
+  </w:style>
+</w:styles>`);
+
+  zip.folder('word').file('numbering.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/>
+    <w:numFmt w:val="bullet"/><w:lvlText w:val="•"/>
+    <w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr>
+  </w:lvl></w:abstractNum>
+  <w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:start w:val="1"/>
+    <w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/>
+    <w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr>
+  </w:lvl></w:abstractNum>
+  <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+  <w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>
+</w:numbering>`);
+
+  zip.folder('word').file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+  ${htmlToOxml()}
+  <w:sectPr>
+    <w:pgSz w:w="12240" w:h="15840"/>
+    <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+  </w:sectPr>
+  </w:body>
+</w:document>`);
+
+  const blob = await zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  const name = ($('fname').textContent || 'documento').replace(/\.docx$/i,'') + '.docx';
+  saveAs(blob, name);
+  toast('Documento guardado', 'ok');
+}
+</script>
+</body>
+</html>
