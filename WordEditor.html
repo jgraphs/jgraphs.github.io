@@ -62,14 +62,31 @@ kbd{
 }
 
 /* ── Layout ──────────────────────────────────────────── */
-.workspace{display:flex;flex:1;overflow:hidden}
+.workspace{display:flex;flex:1;overflow:hidden;position:relative}
 
 /* ── Sidebar ─────────────────────────────────────────── */
 aside{
   width:var(--sidebar-w);background:var(--panel);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;overflow:hidden;flex-shrink:0
+  display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;
+  transition:width .22s cubic-bezier(.4,0,.2,1);position:relative;
 }
-.sidebar-body{flex:1;overflow-y:auto}
+aside.collapsed{width:0;border-right:none}
+aside.collapsed .sidebar-body{opacity:0;pointer-events:none}
+.sidebar-body{flex:1;overflow-y:auto;transition:opacity .15s;min-width:var(--sidebar-w)}
+
+/* Toggle button */
+#sidebar-toggle{
+  position:relative;
+  width:18px;height:auto;align-self:stretch;
+  background:var(--panel);border:none;
+  border-right:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:15;color:var(--muted);
+  transition:background .1s;flex-shrink:0;
+}
+#sidebar-toggle:hover{background:var(--bg);color:var(--text)}
+.toggle-arrow{font-size:10px;transition:transform .22s;display:block;line-height:1}
+aside.collapsed + #sidebar-toggle .toggle-arrow{transform:rotate(180deg)}
 .sec{padding:14px;border-bottom:1px solid var(--border)}
 .sec-title{
   font-size:10.5px;font-weight:500;color:var(--muted);
@@ -248,6 +265,9 @@ input[type=range].ctrl{padding:0;height:30px}
 @media print {
   body { background: white !important; overflow: visible !important; height: auto !important; }
   header, aside, .toolbar, #print-modal-backdrop { display: none !important; }
+  #editor { caret-color: transparent !important; }
+  #editor ::selection { background: transparent !important; }
+  * { caret-color: transparent !important; }
   .workspace { display: block !important; height: auto !important; overflow: visible !important; }
   .content-area { display: block !important; height: auto !important; overflow: visible !important; }
   .canvas-wrap { display: block !important; padding: 0 !important; overflow: visible !important; background: white !important; }
@@ -355,15 +375,15 @@ input[type=range].ctrl{padding:0;height:30px}
 
   <div class="hdr-spacer"></div>
 
-  <button class="hdr-btn" id="btn-save-html" disabled>
+  <button class="hdr-btn" id="btn-save-html">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     HTML
   </button>
-  <button class="hdr-btn" id="btn-save-pdf" disabled style="color:var(--danger)">
+  <button class="hdr-btn" id="btn-save-pdf" style="color:var(--danger)">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h1m4 0h1m-5 4h6"/><path d="M9 11h6"/></svg>
     Exportar PDF
   </button>
-  <button class="hdr-btn" id="btn-save-docx" disabled>
+  <button class="hdr-btn" id="btn-save-docx">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     .docx
   </button>
@@ -539,6 +559,11 @@ input[type=range].ctrl{padding:0;height:30px}
     </div>
   </aside>
 
+  <!-- Sidebar toggle -->
+  <button id="sidebar-toggle" title="Colapsar panel">
+    <span class="toggle-arrow">‹</span>
+  </button>
+
   <!-- Editor -->
   <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
 
@@ -632,6 +657,33 @@ input[type=range].ctrl{padding:0;height:30px}
 </div>
 
 <script>
+// ══ Sidebar toggle ═══════════════════════════════════════════════════
+const sidebarEl = document.querySelector('aside');
+const toggleBtn = document.getElementById('sidebar-toggle');
+toggleBtn.addEventListener('click', () => {
+  sidebarEl.classList.toggle('collapsed');
+  toggleBtn.title = sidebarEl.classList.contains('collapsed') ? 'Expandir panel' : 'Colapsar panel';
+});
+
+// ══ Default document content ══════════════════════════════════════════
+document.getElementById('editor').innerHTML = `
+<h1>Mi documento</h1>
+<p style="color:#666;font-style:italic">Haz clic aquí para empezar a editar. Puedes escribir, dar formato y exportar a PDF, HTML o .docx.</p>
+<p></p>
+<h2>Introducción</h2>
+<p>Este es el documento inicial. Puedes modificarlo libremente: cambia el texto, aplica estilos desde la barra de herramientas, inserta imágenes o carga un archivo <strong>.docx</strong> desde el panel izquierdo.</p>
+<h2>Características</h2>
+<ul>
+  <li>Edición de texto enriquecido con formatos</li>
+  <li>Importar archivos <strong>.docx</strong></li>
+  <li>Exportar a <strong>PDF</strong>, <strong>HTML</strong> y <strong>.docx</strong></li>
+  <li>Inserción de imágenes</li>
+  <li>Buscar y reemplazar</li>
+  <li>Deshacer / Rehacer</li>
+</ul>
+<p></p>`;
+// Stats and history will be initialized after the rest of the script loads
+
 // ══ Native saveAs (no FileSaver needed) ══════════════════════════════
 function saveAs(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -804,8 +856,9 @@ ed.addEventListener('input', () => { scheduleHistory(); updateStats(); });
 ed.addEventListener('keyup', updateToolbarState);
 ed.addEventListener('mouseup', updateToolbarState);
 
-// Initial snapshot
+// Initial snapshot + stats
 pushHistory();
+updateStats();
 
 // ══ Typography & color controls ═══════════════════════════════════════
 $('font-family').addEventListener('change', function() {
@@ -1012,9 +1065,18 @@ $('pm-print').addEventListener('click', () => {
 
   // Small delay to let modal close, then print
   setTimeout(() => {
+    // Remove focus and selection so the cursor/caret doesn't appear in the PDF
+    const editor = $('editor');
+    editor.blur();
+    window.getSelection()?.removeAllRanges();
+    // Temporarily disable contenteditable so the browser doesn't render the caret
+    editor.setAttribute('contenteditable', 'false');
+
     window.print();
-    // Remove temp style after print dialog closes
+
+    // Restore contenteditable after print dialog closes
     setTimeout(() => {
+      editor.setAttribute('contenteditable', 'true');
       const s = document.getElementById('print-vars');
       if (s) s.remove();
     }, 1000);
