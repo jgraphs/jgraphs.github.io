@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JGraphs</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0c18; --surface: #13132a; --surface2: #1c1c3a;
+  --border: #2a2a55; --accent: #7c6fff; --accent2: #ff6b9d;
+  --text: #e2e2f0; --text-dim: #7878a0; --success: #43e97b;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--bg); color: var(--text);
+  display: grid;
+  grid-template-rows: 48px 1fr;
+  grid-template-columns: 240px 1fr;
+}
+header {
+  grid-column: 1/-1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.logo { font-size: 18px; font-weight: 600; }
+.logo span { color: var(--accent); }
+.header-links { display: flex; gap: 14px; font-size: 12px; }
+.header-links a { color: var(--text-dim); text-decoration: none; }
+.header-links a:hover { color: var(--accent); }
+
+aside {
+  background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto; padding-bottom: 16px;
+}
+.slabel {
+  font-size: 9px; font-weight: 600; letter-spacing: 1.2px;
+  color: var(--text-dim); text-transform: uppercase; padding: 16px 14px 6px;
+}
+.cmd-wrap { padding: 0 14px 12px; }
+.cmd-wrap input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 8px 10px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none;
+}
+.cmd-wrap input:focus { border-color: var(--accent); }
+.n-row { display: flex; align-items: center; gap: 8px; padding: 0 14px 10px; }
+.n-row label { font-size: 11px; color: var(--text-dim); }
+.n-row input { width: 52px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-family: 'JetBrains Mono',monospace;
+  font-size: 12px; padding: 5px 7px; outline: none; }
+.gbtn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 0 14px 12px; }
+.gbtn {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 11px; padding: 6px 8px; cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.gbtn:hover { border-color: var(--accent); color: var(--accent); }
+hr { border: none; border-top: 1px solid var(--border); margin: 2px 14px 2px; }
+.srow { padding: 0 14px 8px; }
+.srow label { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 3px; }
+.srow label span { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+input[type=range] { -webkit-appearance: none; width: 100%; height: 3px; background: var(--border); border-radius: 2px; outline: none; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid var(--bg); }
+.ebtn-list { display: flex; flex-direction: column; gap: 4px; padding: 0 14px 12px; }
+.ebtn {
+  background: transparent; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  padding: 6px 10px; cursor: pointer; text-align: left; transition: all .15s;
+}
+.ebtn:hover { border-color: var(--accent2); color: var(--accent2); }
+details { padding: 0 14px 10px; }
+summary { font-size: 11px; color: var(--text-dim); cursor: pointer; user-select: none; }
+.ilist { margin-top: 8px; font-size: 10.5px; color: var(--text-dim); line-height: 1.9;
+  border-left: 2px solid var(--border); padding-left: 8px; list-style: none; }
+.ilist li::before { content: '→ '; color: var(--accent); }
+
+main { display: flex; flex-direction: column; overflow: hidden; position: relative; }
+.canvas-wrap {
+  flex: 1; position: relative; overflow: hidden;
+  background: radial-gradient(ellipse at 20% 80%, rgba(124,111,255,.06) 0%, transparent 55%),
+              radial-gradient(ellipse at 80% 20%, rgba(255,107,157,.04) 0%, transparent 55%), var(--bg);
+}
+#myCanvas { position: absolute; top: 0; left: 0; cursor: crosshair; display: block; }
+
+.statusbar {
+  height: 26px; background: var(--surface); border-top: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 18px;
+  font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; flex-shrink: 0;
+}
+.statusbar b { color: var(--accent); }
+
+.out-panel { background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0; }
+.out-toggle { display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 14px; cursor: pointer; font-size: 11px; color: var(--text-dim); user-select: none; }
+.out-toggle:hover { color: var(--text); }
+.out-body { padding: 0 14px 10px; display: none; }
+#graphoutput {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+  color: var(--success); font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  padding: 10px; resize: vertical; min-height: 70px; outline: none;
+}
+.copy-btn {
+  margin-top: 5px; background: transparent; border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; padding: 3px 10px; cursor: pointer; transition: all .15s;
+}
+.copy-btn:hover { border-color: var(--success); color: var(--success); }
+
+/* Vertex editor */
+#vEditor {
+  display: none; position: fixed; z-index: 999;
+  background: var(--surface); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 12px 14px; min-width: 190px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.6);
+}
+#vEditor h4 { font-size: 10px; color: var(--text-dim); margin-bottom: 7px; text-transform: uppercase; letter-spacing: .8px; }
+#vEditor input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; padding: 6px 9px; outline: none; margin-bottom: 8px;
+}
+#vEditor input:focus { border-color: var(--accent); }
+.ve-row { display: flex; gap: 5px; }
+.ve-btn { flex: 1; padding: 5px; border-radius: 5px; border: none; font-size: 11px; cursor: pointer; }
+.ve-save { background: var(--accent); color: #fff; }
+.ve-del { background: var(--surface2); color: var(--accent2); border: 1px solid var(--border); }
+.ve-cancel { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+
+#modePill {
+  position: absolute; top: 12px; right: 14px;
+  background: rgba(19,19,42,.8); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 12px; font-size: 10px;
+  color: var(--text-dim); font-family: 'JetBrains Mono', monospace;
+  backdrop-filter: blur(6px); pointer-events: none;
+}
+#modePill.edge { border-color: var(--accent); color: var(--accent); }
+
+#toast {
+  position: fixed; bottom: 55px; left: 50%; transform: translateX(-50%) translateY(16px);
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 7px 18px; font-size: 12px; opacity: 0; transition: all .3s;
+  pointer-events: none; z-index: 9999;
+}
+#toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">J<span>Graphs</span></div>
+  <div class="header-links">
+    <a href="https://www.youtube.com/watch?v=qE4ZOp7M3sQ" target="_blank">Tutorial</a>
+    <a href="https://alfaromontufar.github.io" target="_blank">Autor</a>
+    <a href="https://www.unimelb-macaulay2.cloud.edu.au/#home" target="_blank">Macaulay2 ↗</a>
+  </div>
+</header>
+
+<aside>
+  <div class="slabel">Comando</div>
+  <div class="cmd-wrap">
+    <input id="graphinput" type="text" placeholder="K5, C4, P3, Tn, toSage…" autocomplete="off">
+  </div>
+
+  <div class="slabel">Grafos rápidos</div>
+  <div class="n-row">
+    <label>n =</label>
+    <input type="number" id="quickN" value="5" min="1" max="20">
+  </div>
+  <div class="gbtn-grid">
+    <button class="gbtn" onclick="quickDraw('K')">Kn Completo</button>
+    <button class="gbtn" onclick="quickDraw('C')">Cn Ciclo</button>
+    <button class="gbtn" onclick="quickDraw('P')">Pn Camino</button>
+    <button class="gbtn" onclick="quickDraw('T')">Tn Trivial</button>
+  </div>
+
+  <hr>
+  <div class="slabel">Apariencia</div>
+  <div class="srow">
+    <label>Vértice <span id="vsVal">10</span></label>
+    <input type="range" id="vertexSize" min="5" max="24" value="10">
+  </div>
+  <div class="srow">
+    <label>Arista <span id="ewVal">2</span></label>
+    <input type="range" id="edgeWidth" min="1" max="8" value="2">
+  </div>
+  <div class="srow">
+    <label>Texto <span id="tsVal">13</span></label>
+    <input type="range" id="textSize" min="8" max="32" value="13">
+  </div>
+
+  <hr>
+  <div class="slabel">Exportar</div>
+  <div class="ebtn-list">
+    <button class="ebtn" onclick="exportGraph('toSage')">→ SageMath</button>
+    <button class="ebtn" onclick="exportGraph('toLatex')">→ LaTeX / TikZ</button>
+    <button class="ebtn" onclick="exportGraph('toM2')">→ Macaulay2</button>
+    <button class="ebtn" onclick="exportGraph('toR')">→ R (igraph)</button>
+  </div>
+
+  <hr>
+  <details>
+    <summary>Instrucciones</summary>
+    <ul class="ilist">
+      <li>Doble clic en canvas → nuevo vértice</li>
+      <li>Doble clic en vértice → editar / eliminar</li>
+      <li>Clic derecho en vértice → editar nombre</li>
+      <li>Un clic en dos vértices → arista</li>
+      <li>Arrastrar → mover vértice</li>
+    </ul>
+  </details>
+</aside>
+
+<main>
+  <div class="canvas-wrap">
+    <canvas id="myCanvas"></canvas>
+    <div id="modePill">listo</div>
+  </div>
+  <div class="statusbar">
+    <span>Vértices: <b id="stV">0</b></span>
+    <span>Aristas: <b id="stE">0</b></span>
+    <span id="stMsg">doble clic para agregar vértice</span>
+  </div>
+  <div class="out-panel">
+    <div class="out-toggle" onclick="toggleOut()">▸ Salida <span id="outLang" style="font-family:'JetBrains Mono',monospace;font-size:10px"></span></div>
+    <div class="out-body" id="outBody">
+      <textarea readonly id="graphoutput" rows="4" placeholder="Usa los botones de exportar…"></textarea>
+      <button class="copy-btn" onclick="copyOut()">Copiar</button>
+    </div>
+  </div>
+</main>
+
+<!-- Vertex editor popup -->
+<div id="vEditor">
+  <h4>Vértice <span id="veIdx" style="color:var(--accent);font-family:'JetBrains Mono',monospace"></span></h4>
+  <input id="veInput" type="text" maxlength="12" placeholder="nombre">
+  <div class="ve-row">
+    <button class="ve-btn ve-save" onclick="veSave()">Guardar</button>
+    <button class="ve-btn ve-del" onclick="veDel()">Eliminar</button>
+    <button class="ve-btn ve-cancel" onclick="veClose()">Cancelar</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CANVAS ──────────────────────────────────────────────────────
+const canvas = document.getElementById('myCanvas');
+const ctx    = canvas.getContext('2d');
+
+function fitCanvas() {
+  const wrap = canvas.parentElement;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  if (w > 0 && h > 0) {
+    // Set both the attribute AND the style size to the same value
+    // so offsetX/offsetY == internal canvas coords with no scaling
+    canvas.width  = w;
+    canvas.height = h;
+    canvas.style.width  = w + 'px';
+    canvas.style.height = h + 'px';
+  }
+  draw();
+}
+window.addEventListener('resize', fitCanvas);
+setTimeout(fitCanvas, 0);
+setTimeout(fitCanvas, 100); // second pass in case layout wasn't ready
+
+// ── STATE ───────────────────────────────────────────────────────
+let vertexSize = 10;
+let edgeWidth  = 2;
+let fontSize   = 13;
+let nVertices  = 0;
+let circles    = [];
+let edges      = [];
+let isDown     = false;
+let dragIdx    = -1;
+let edgeHead   = -1;  // first vertex clicked for edge
+let editIdx    = -1;
+
+// ── SLIDERS ─────────────────────────────────────────────────────
+document.getElementById('vertexSize').addEventListener('input', function() {
+  vertexSize = +this.value;
+  document.getElementById('vsVal').textContent = this.value;
+  draw();
+});
+document.getElementById('edgeWidth').addEventListener('input', function() {
+  edgeWidth = +this.value;
+  document.getElementById('ewVal').textContent = this.value;
+  draw();
+});
+document.getElementById('textSize').addEventListener('input', function() {
+  fontSize = +this.value;
+  document.getElementById('tsVal').textContent = this.value;
+  draw();
+});
+
+// ── COMMAND INPUT ───────────────────────────────────────────────
+document.getElementById('graphinput').addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const txt = this.value.trim();
+  this.value = '';
+  runCommand(txt);
+});
+
+function quickDraw(type) {
+  const n = parseInt(document.getElementById('quickN').value) || 5;
+  runCommand(type + n);
+}
+
+function runCommand(text) {
+  const exports = {toSage:1, toLatex:1, toR:1, toM2:1, computeFM:1};
+  if (exports[text]) { exportGraph(text); return; }
+  if (!text || text.length < 2) return;
+  const cmd = text[0].toUpperCase();
+  const n   = parseInt(text.slice(1));
+  if (!n || n < 1 || n > 50) return;
+  if      (cmd === 'K') buildComplete(n);
+  else if (cmd === 'C') buildCycle(n);
+  else if (cmd === 'P') buildPath(n);
+  else if (cmd === 'T') buildTrivial(n);
+  draw();
+}
+
+// ── GRAPH BUILDERS ──────────────────────────────────────────────
+function ringPos(i, n) {
+  const r  = Math.min(canvas.width, canvas.height) * 0.35;
+  const cx = canvas.width  / 2;
+  const cy = canvas.height / 2;
+  const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+  return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
+}
+
+function mkCircle(x, y) {
+  const idx = nVertices++;
+  return { x, y, idx, label: String(idx), color: '#e05a5a', alive: true };
+}
+
+function buildComplete(n) {
+  const base = nVertices;
+  for (let i = 0; i < n; i++) {
+    const [x,y] = ringPos(i, n);
+    circles.push(mkCircle(x, y));
+  }
+  for (let i = base; i < base+n; i++)
+    for (let j = i+1; j < base+n; j++)
+      edges.push([i, j]);
+  toast('K' + n + ' dibujado');
+}
+
+function buildCycle(n) {
+  const base = nVertices;
+  for (let i = 0; i < n; i++) {
+    const [x,y] = ringPos(i, n);
+    circles.push(mkCircle(x, y));
+  }
+  for (let i = 0; i < n; i++) edges.push([base+i, base+(i+1)%n]);
+  toast('C' + n + ' dibujado');
+}
+
+function buildPath(n) {
+  const base = nVertices;
+  for (let i = 0; i < n; i++) {
+    const [x,y] = ringPos(i, n);
+    circles.push(mkCircle(x, y));
+  }
+  for (let i = 0; i < n-1; i++) edges.push([base+i, base+i+1]);
+  toast('P' + n + ' dibujado');
+}
+
+function buildTrivial(n) {
+  for (let i = 0; i < n; i++) {
+    const [x,y] = ringPos(i, n);
+    circles.push(mkCircle(x, y));
+  }
+  toast('T' + n + ' dibujado');
+}
+
+// ── DRAW ────────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // grid
+  ctx.strokeStyle = 'rgba(42,42,85,.35)';
+  ctx.lineWidth = 1;
+  const gs = 40;
+  for (let x = 0; x < canvas.width;  x += gs) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for (let y = 0; y < canvas.height; y += gs) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+
+  // edges
+  ctx.lineWidth = edgeWidth;
+  ctx.strokeStyle = 'rgba(124,111,255,.75)';
+  for (const [a, b] of edges) {
+    const ca = circles[a], cb = circles[b];
+    if (!ca || !cb || !ca.alive || !cb.alive) continue;
+    ctx.beginPath(); ctx.moveTo(ca.x, ca.y); ctx.lineTo(cb.x, cb.y); ctx.stroke();
+  }
+
+  // vertices
+  for (const v of circles) {
+    if (!v.alive) {
+      ctx.beginPath(); ctx.arc(v.x, v.y, vertexSize, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(124,111,255,.2)'; ctx.lineWidth = 1; ctx.stroke();
+      continue;
+    }
+    const sel = (v.idx === edgeHead);
+
+    // glow
+    if (sel) {
+      ctx.beginPath(); ctx.arc(v.x, v.y, vertexSize+7, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,217,61,.13)'; ctx.fill();
+    }
+
+    // body
+    ctx.beginPath(); ctx.arc(v.x, v.y, vertexSize, 0, Math.PI*2);
+    ctx.fillStyle = sel ? '#ffd93d' : v.color;
+    ctx.fill();
+    ctx.strokeStyle = sel ? '#ffd93d' : 'rgba(255,255,255,.25)';
+    ctx.lineWidth = sel ? 2 : 1.5;
+    ctx.stroke();
+
+    // label
+    ctx.font = `${fontSize}px 'JetBrains Mono', monospace`;
+    const tw = ctx.measureText(v.label).width;
+    const lx = v.x, ly = v.y - vertexSize - 6;
+    ctx.fillStyle = 'rgba(12,12,24,.75)';
+    ctx.beginPath();
+    ctx.roundRect(lx - tw/2 - 4, ly - fontSize/2 - 2, tw + 8, fontSize + 4, 3);
+    ctx.fill();
+    ctx.fillStyle = sel ? '#ffd93d' : '#e2e2f0';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(v.label, lx, ly);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+
+  // status
+  const alive = circles.filter(v => v.alive).length;
+  const aliveE = edges.filter(([a,b]) => circles[a]?.alive && circles[b]?.alive).length;
+  document.getElementById('stV').textContent = alive;
+  document.getElementById('stE').textContent = aliveE;
+}
+
+// ── MOUSE UTILS ─────────────────────────────────────────────────
+function getPos(e) {
+  // Use offsetX/offsetY — always relative to the canvas element
+  return { x: e.offsetX, y: e.offsetY };
+}
+
+function hitTest(x, y) {
+  for (let i = 0; i < circles.length; i++) {
+    const v = circles[i];
+    if (!v.alive) continue;
+    const dx = x - v.x, dy = y - v.y;
+    if (dx*dx + dy*dy <= vertexSize*vertexSize + 4) return i;
+  }
+  return -1;
+}
+
+// ── MOUSE EVENTS ────────────────────────────────────────────────
+let mouseDownPos = null;
+let didDrag = false;
+const DRAG_THRESHOLD = 4; // px
+
+canvas.addEventListener('mousedown', function(e) {
+  if (e.button !== 0) return;
+  isDown = true;
+  didDrag = false;
+  dragIdx = -1;
+  const {x, y} = getPos(e);
+  mouseDownPos = {x, y};
+  const hit = hitTest(x, y);
+  if (hit >= 0) dragIdx = hit;
+});
+
+canvas.addEventListener('mousemove', function(e) {
+  if (!isDown) return;
+  const {x, y} = getPos(e);
+  // Only start dragging if mouse moved enough
+  if (!didDrag && mouseDownPos) {
+    const dx = x - mouseDownPos.x, dy = y - mouseDownPos.y;
+    if (dx*dx + dy*dy > DRAG_THRESHOLD*DRAG_THRESHOLD) didDrag = true;
+  }
+  if (didDrag && dragIdx >= 0) {
+    circles[dragIdx].x = x;
+    circles[dragIdx].y = y;
+    draw();
+  }
+});
+
+canvas.addEventListener('mouseup', function(e) {
+  if (e.button !== 0) return;
+  const wasDragging = didDrag && dragIdx >= 0;
+  const {x, y} = getPos(e);
+  const hit = hitTest(x, y);
+
+  if (!wasDragging) {
+    // click on vertex → edge logic
+    if (hit >= 0) {
+      if (edgeHead < 0) {
+        edgeHead = hit;
+        setPill('clic en otro vértice para conectar', 'edge');
+        setMsg('vértice ' + circles[hit].label + ' seleccionado');
+        draw();
+      } else if (hit !== edgeHead) {
+        toggleEdge(edgeHead, hit);
+        edgeHead = -1;
+        setPill('listo');
+        draw();
+      }
+    } else {
+      // click on empty → cancel edge selection
+      if (edgeHead >= 0) {
+        edgeHead = -1;
+        setPill('listo');
+        draw();
+      }
+    }
+  }
+
+  isDown  = false;
+  dragIdx = -1;
+});
+
+canvas.addEventListener('dblclick', function(e) {
+  e.preventDefault();
+  const {x, y} = getPos(e);
+  const hit = hitTest(x, y);
+
+  if (hit >= 0) {
+    veOpen(hit, e.clientX, e.clientY);
+  } else {
+    const v = mkCircle(x, y);
+    circles.push(v);
+    setMsg('vértice ' + v.label + ' agregado');
+    draw();
+  }
+});
+
+canvas.addEventListener('contextmenu', function(e) {
+  e.preventDefault();
+  const {x, y} = getPos(e);
+  const hit = hitTest(x, y);
+  if (hit >= 0) veOpen(hit, e.clientX, e.clientY);
+});
+
+function toggleEdge(a, b) {
+  const lo = Math.min(a,b), hi = Math.max(a,b);
+  const idx = edges.findIndex(([x,y]) => x===lo && y===hi);
+  if (idx >= 0) {
+    edges.splice(idx, 1);
+    setMsg('arista eliminada');
+  } else {
+    edges.push([lo, hi]);
+    setMsg('arista ' + circles[lo].label + '–' + circles[hi].label + ' agregada');
+  }
+}
+
+// ── VERTEX EDITOR ────────────────────────────────────────────────
+function veOpen(idx, cx, cy) {
+  editIdx = idx;
+  document.getElementById('veIdx').textContent = '#' + circles[idx].idx;
+  document.getElementById('veInput').value = circles[idx].label;
+  const ed = document.getElementById('vEditor');
+  ed.style.display = 'block';
+  const w=200, h=130;
+  let l = cx+12, t = cy+12;
+  if (l+w > window.innerWidth)  l = cx-w-12;
+  if (t+h > window.innerHeight) t = cy-h-12;
+  ed.style.left = l+'px'; ed.style.top = t+'px';
+  setTimeout(() => document.getElementById('veInput').focus(), 30);
+}
+function veSave() {
+  if (editIdx < 0) return;
+  const v = document.getElementById('veInput').value.trim();
+  if (v) { circles[editIdx].label = v; toast('Renombrado a "' + v + '"'); }
+  veClose(); draw();
+}
+function veDel() {
+  if (editIdx < 0) return;
+  circles[editIdx].alive = !circles[editIdx].alive;
+  toast(circles[editIdx].alive ? 'Vértice restaurado' : 'Vértice eliminado');
+  veClose(); draw();
+}
+function veClose() {
+  editIdx = -1;
+  document.getElementById('vEditor').style.display = 'none';
+}
+document.getElementById('veInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter')  veSave();
+  if (e.key === 'Escape') veClose();
+});
+document.addEventListener('click', e => {
+  const ed = document.getElementById('vEditor');
+  if (ed.style.display === 'block' && !ed.contains(e.target) && e.target !== canvas) veClose();
+});
+
+// ── EXPORT ──────────────────────────────────────────────────────
+function exportGraph(type) {
+  let result = '';
+  if      (type === 'toSage')  result = 'g=Graph(' + toSageStr() + ')';
+  else if (type === 'toR')     result = 'library(igraph)\ng <- graph.formula(' + toRStr() + ')';
+  else if (type === 'toM2')    result = 'loadPackage "Graphs"\nG = graph(' + toM2Str() + ')';
+  else if (type === 'toLatex') result = toLatex();
+  document.getElementById('outLang').textContent = type;
+  document.getElementById('graphoutput').value = result;
+  document.getElementById('outBody').style.display = 'block';
+  toast('Exportado · ' + type);
+}
+
+function liveEdges() { return edges.filter(([a,b]) => circles[a]?.alive && circles[b]?.alive); }
+function liveCircles() { return circles.filter(v => v.alive); }
+
+function toSageStr() {
+  const adj = {};
+  for (const v of liveCircles()) adj[v.idx] = [];
+  for (const [a,b] of liveEdges()) { adj[a].push(b); }
+  return '{' + liveCircles().map(v => v.idx + ':[' + adj[v.idx].join(',') + ']').join(',') + '}';
+}
+
+function toRStr() {
+  return liveEdges().map(([a,b]) => circles[a].label + '-' + circles[b].label).join(',');
+}
+
+function toM2Str() {
+  const used = new Set();
+  const parts = liveEdges().map(([a,b]) => { used.add(a); used.add(b); return '{'+a+','+b+'}'; });
+  let s = '{' + parts.join(',') + '}';
+  const singles = liveCircles().filter(v => !used.has(v.idx)).map(v => v.idx);
+  if (singles.length) s += ', Singletons => {' + singles.join(',') + '}';
+  return s;
+}
+
+function toLatex() {
+  const cx = canvas.width/2, cy = canvas.height/2;
+  let s = '\\documentclass[11pt]{amsart}\n\\usepackage{tikz}\n\\begin{document}\n  \\begin{center}\n    \\begin{tikzpicture}[scale=2,thick]\n';
+  s += '    \\tikzstyle{every node}=[minimum width=0pt, inner sep=2pt, circle]\n';
+  for (const v of liveCircles())
+    s += `      \\draw (${((v.x-cx)/100).toFixed(3)},${((cy-v.y)/100).toFixed(3)}) node[draw] (${v.idx}) {\\tiny ${v.label}};\n`;
+  for (const [a,b] of liveEdges())
+    s += `      \\draw (${a}) edge (${b});\n`;
+  s += '    \\end{tikzpicture}\n  \\end{center}\n\\end{document}\n';
+  return s;
+}
+
+// ── UI ──────────────────────────────────────────────────────────
+function toggleOut() {
+  const b = document.getElementById('outBody');
+  b.style.display = b.style.display === 'none' ? 'block' : 'none';
+}
+function copyOut() {
+  navigator.clipboard.writeText(document.getElementById('graphoutput').value)
+    .then(() => toast('Copiado'));
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 2400);
+}
+function setPill(msg, cls) {
+  const p = document.getElementById('modePill');
+  p.textContent = msg; p.className = cls || '';
+}
+function setMsg(msg) { document.getElementById('stMsg').textContent = msg; }
+
+// ── INIT ────────────────────────────────────────────────────────
+draw();
+</script>
+</body>
+</html>
