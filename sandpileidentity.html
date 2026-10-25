@@ -76,11 +76,19 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:1/1;border-radius:10px;
 details{margin-top:2.2rem;max-width:46rem}
 summary{cursor:pointer;font-weight:600}
 details p{color:var(--ink)}
-.matrix{margin-top:1.6rem;overflow-x:auto;max-width:100%}
+.mats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:1.5rem;margin-top:1.8rem;align-items:start}
+.matrix{overflow:auto;max-width:100%;max-height:70vh;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.matrix label{position:sticky;left:0;top:0;display:block;padding:.7rem 1rem .4rem;background:var(--surface)}
+.matrix pre{border:0 !important;padding-top:.2rem !important}
 .matrix pre{font:400 .9rem/1.45 "IBM Plex Mono",ui-monospace,monospace;margin:0;padding:1rem;
   background:var(--surface);border:1px solid var(--line);border-radius:10px;display:inline-block}
 .toast{margin-top:.6rem;font-size:.92rem;color:var(--muted);min-height:1.3em}
 .inv{margin-top:1.2rem;padding-top:1.1rem;border-top:1px solid var(--line)}
+.views{display:flex;gap:.4rem;margin-bottom:.7rem;flex-wrap:wrap}
+.views button{background:transparent;color:var(--ink);border-color:var(--line)}
+.views button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.ramp{height:10px;border-radius:3px;margin-top:.7rem;background:linear-gradient(90deg,var(--g0),var(--g1),var(--g2),var(--g3))}
+.ramp-labels{display:flex;justify-content:space-between;font-size:.9rem;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace}
 @media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
 </style>
 </head>
@@ -107,6 +115,7 @@ details p{color:var(--ink)}
       <div class="status" aria-live="polite">
         <div class="stage" id="st1"><span class="dot"></span><span>Etapa 1: s(6·𝟏)</span><span class="sub" id="st1s">Pendiente</span></div>
         <div class="stage" id="st2"><span class="dot"></span><span>Etapa 2: s(6·𝟏 − s(6·𝟏))</span><span class="sub" id="st2s">Pendiente</span></div>
+        <div class="stage" id="st3"><span class="dot"></span><span>Etapa 3: x* = e·Δ<sub>q</sub><sup>−1</sup></span><span class="sub" id="st3s">Pendiente</span></div>
         <div class="bar" aria-hidden="true"><i id="bar"></i></div>
         <div id="msg" class="hint">Elige n y pulsa Calcular.</div>
       </div>
@@ -121,6 +130,7 @@ details p{color:var(--ink)}
         <button id="dlcsv" class="secondary" disabled>Descargar matriz (.csv)</button>
         <button id="dltxt" class="secondary" disabled>Descargar matriz (.txt)</button>
         <button id="dlpng" class="secondary" disabled>Descargar imagen (.png)</button>
+        <button id="dlx" class="secondary" disabled>Descargar x* (.csv)</button>
       </div>
       <div class="toast" id="toast" aria-live="polite"></div>
 
@@ -136,19 +146,36 @@ details p{color:var(--ink)}
     </section>
 
     <section class="canvas-box" aria-label="Configuración de granos en la rejilla">
+      <div class="views" role="group" aria-label="Qué mostrar">
+        <button id="vE" aria-pressed="true">Identidad e</button>
+        <button id="vX" aria-pressed="false" disabled>x* = e·Δ<sub>q</sub><sup>−1</sup></button>
+      </div>
       <canvas id="cv" width="600" height="600" role="img" aria-label="Mapa de colores de la configuración"></canvas>
-      <div class="readout" id="readout">Toca o pasa el cursor sobre la rejilla para ver el número de granos de cada vértice.</div>
+      <div class="readout" id="readout">Toca o pasa el cursor sobre la rejilla para ver el valor de cada vértice.</div>
+      <div id="rampBox" hidden>
+        <div class="ramp" aria-hidden="true"></div>
+        <div class="ramp-labels"><span id="rmin"></span><span id="rmax"></span></div>
+        <p class="hint" id="xinfo"></p>
+      </div>
     </section>
   </div>
 
+  <div class="mats">
   <div class="matrix" id="matrixBox" hidden>
     <label>Matriz de la identidad</label>
     <pre id="matrix"></pre>
   </div>
 
+  <div class="matrix" id="xBox" hidden>
+    <label>Matriz de x* = e·Δ<sub>q</sub><sup>−1</sup></label>
+    <pre id="xmatrix"></pre>
+  </div>
+  </div>
+
   <details>
     <summary>Cómo se calcula</summary>
     <p>La página aplica la Proposición 2.7 de Alfaro, Valencia y Vargas (2023): primero estabiliza la configuración con 6 granos en cada vértice, luego estabiliza 6·𝟏 menos el resultado. Cada estabilización se acelera con el principio de mínima acción: se resuelve la ecuación de Poisson discreta <i>w</i>Δ = <i>c</i> − 3·𝟏 con la transformada seno, y se disparan de golpe ⌊<i>w</i>⌋ veces cada vértice. Esa cantidad nunca supera el odómetro real de la estabilización, así que los desmoronamientos legales que siguen llevan exactamente a la misma configuración estable que el método directo. Se comprobó la coincidencia exacta con la estabilización directa para n = 1, …, 60.</p>
+    <p>La vista x* = e·Δ<sub>q</sub><sup>−1</sup> multiplica la identidad, sin el vértice sumidero, por la inversa del laplaciano reducido. Como e está en la red generada por las filas de Δ<sub>q</sub>, el resultado es entero: es la solución óptima del programa entero (2.3) del artículo y cuenta cuántas veces se dispara cada vértice para obtener e desde la configuración vacía. Se calcula con la transformada seno y se verifica exactamente que x*·Δ<sub>q</sub> = e.</p>
     <p>Los colores siguen el número de granos: 0, 1, 2 o 3. Durante el cálculo pueden verse vértices inestables (4 o más) y valores negativos transitorios que deja el pre-disparo.</p>
   </details>
 </div>
@@ -215,9 +242,42 @@ function draw(c,n){
   for(let i=0;i<n;i++)for(let j=0;j<n;j++){const x=c[i*n+j];const col=x<0?pal.neg:(x>3?pal.hot:pal.g[x]);
     for(let a=0;a<scale;a++){const py=i*scale+a;for(let b=0;b<scale;b++){const px=j*scale+b;const o=(py*size+px)*4;
       const isGap=gap&&(a===scale-1||b===scale-1);const cc=isGap?pal.gap:col;d[o]=cc[0];d[o+1]=cc[1];d[o+2]=cc[2];d[o+3]=255;}}}
-  ctx.putImageData(img,0,0);
+  ctx.putImageData(img,0,0);labelCells(c,n,scale,d,size);
 }
 function drawThrottled(){const t=performance.now();if(t-lastDraw>140&&liveC){lastDraw=t;draw(liveC,liveN);}}
+function labelCells(c,n,scale,d,size){
+  if(scale<18)return;
+  let w=1;for(let v=0;v<n*n;v++)w=Math.max(w,String(c[v]).length);
+  const fs=Math.min(scale*0.55,scale*1.7/(w+0.6));
+  ctx.font="500 "+fs.toFixed(1)+"px 'IBM Plex Mono', ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+    const cx=j*scale+(scale-1)/2,cy=i*scale+(scale-1)/2,o=((Math.floor(cy)*size)+Math.floor(cx))*4;
+    const L=0.2126*d[o]+0.7152*d[o+1]+0.0722*d[o+2];
+    ctx.fillStyle=L>140?"#14181F":"#F4F6F9";ctx.fillText(String(c[i*n+j]),cx,cy+fs*0.04);}
+}
+var view="e", xstar=null;
+function drawX(x,n){
+  const pal=palette(),st=pal.g;let mn=Infinity,mx=-Infinity;for(let v=0;v<n*n;v++){if(x[v]<mn)mn=x[v];if(x[v]>mx)mx=x[v];}
+  const scale=Math.max(1,Math.floor(720/n)),gap=scale>=8?1:0,size=n*scale;
+  if(cv.width!==size){cv.width=size;cv.height=size;}
+  const img=ctx.createImageData(size,size),d=img.data,span=Math.max(1,mx-mn);
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++){const t=(x[i*n+j]-mn)/span,sg=t*3,k=Math.min(2,Math.floor(sg)),f=sg-k;
+    const col=[0,1,2].map(c=>Math.round(st[k][c]+(st[k+1][c]-st[k][c])*f));
+    for(let a=0;a<scale;a++){const py=i*scale+a;for(let b=0;b<scale;b++){const o=(py*size+j*scale+b)*4;const cc=gap&&(a===scale-1||b===scale-1)?pal.gap:col;d[o]=cc[0];d[o+1]=cc[1];d[o+2]=cc[2];d[o+3]=255;}}}
+  ctx.putImageData(img,0,0);labelCells(x,n,scale,d,size);
+  $("rmin").textContent=fmt(mn);$("rmax").textContent=fmt(mx);
+}
+function render(){
+  const showX=view==="x"&&xstar;
+  if(showX)drawX(xstar,resultN);else{const c=result||liveC;if(c)draw(c,result?resultN:liveN);}
+  $("rampBox").hidden=!showX;
+  cv.setAttribute("aria-label",showX?"Mapa de calor de x*":"Mapa de colores de la configuración");
+}
+function setView(v){view=v;$("vE").setAttribute("aria-pressed",String(v==="e"));$("vX").setAttribute("aria-pressed",String(v==="x"));render();}
+$("vE").addEventListener("click",()=>setView("e"));
+$("vX").addEventListener("click",()=>setView("x"));
+function padMatrix(c,n){let w=1;for(let v=0;v<n*n;v++)w=Math.max(w,String(c[v]).length);const rows=[];
+  for(let i=0;i<n;i++){const r=[];for(let j=0;j<n;j++)r.push(String(c[i*n+j]).padStart(w));rows.push(r.join(" "));}return rows.join("\n");}
 
 /* ---------- UI ---------- */
 function setStage(k,state,sub){const el=$("st"+k);el.classList.toggle("active",state==="active");el.classList.toggle("done",state==="done");if(sub!==undefined)$("st"+k+"s").textContent=sub;}
@@ -236,12 +296,13 @@ nR.addEventListener("input",()=>syncN(nR.value));
 nIn.addEventListener("keydown",e=>{if(e.key==="Enter"&&!running)run();});
 syncN(100);
 
-function setDownloads(on){["dlcsv","dltxt","dlpng"].forEach(id=>$(id).disabled=!on);}
+function setDownloads(on){["dlcsv","dltxt","dlpng"].forEach(id=>$(id).disabled=!on);$("dlx").disabled=!(on&&xstar);$("vX").disabled=!(on&&xstar);}
 
 async function run(){
   const n=syncN(nIn.value); running=true;cancel=false;result=null;setDownloads(false);
-  go.disabled=true;stopB.hidden=false;$("stats").hidden=true;$("matrixBox").hidden=true;$("toast").textContent="";
-  setStage(1,"active","Preparando");setStage(2,"","Pendiente");
+  xstar=null;go.disabled=true;stopB.hidden=false;$("stats").hidden=true;$("matrixBox").hidden=true;$("xBox").hidden=true;$("rampBox").hidden=true;$("toast").textContent="";
+  setDownloads(false);
+  setStage(1,"active","Preparando");setStage(2,"","Pendiente");setStage(3,"","Pendiente");
   const t0=performance.now(), st={t:performance.now()};
   liveN=n; const N=n*n;
   const ui={phase:m=>{$("msg").textContent=m+"…";},bar:p=>{$("bar").style.width=(Math.min(1,Math.max(0,p))*100).toFixed(1)+"%";},
@@ -256,7 +317,18 @@ async function run(){
     setStage(2,"active","En curso");ui.bar(0);
     const t2=await stabilize(b,n,S,st,ui);
     setStage(2,"done",fmt(t2)+" desmoronamientos");
-    result=b;resultN=n;draw(b,n);ui.bar(1);
+    result=b;resultN=n;draw(b,n);
+    setStage(3,"active","En curso");ui.bar(0);ui.phase("Resolviendo x*·Δ_q = e");
+    const rhs=new Float64Array(N);for(let v=0;v<N;v++)rhs[v]=b[v];
+    const wx=await poisson(rhs,n,S,st,p=>ui.bar(p));
+    const xs=new Int32Array(N);for(let v=0;v<N;v++)xs[v]=Math.round(wx[v]);
+    let exact=true;
+    for(let v=0;v<N&&exact;v++){const i=(v/n)|0,j=v-i*n;let y=4*xs[v];if(i>0)y-=xs[v-n];if(i<n-1)y-=xs[v+n];if(j>0)y-=xs[v-1];if(j<n-1)y-=xs[v+1];if(y!==b[v])exact=false;}
+    xstar=xs;let sx=0,mxx=0;for(let v=0;v<N;v++){sx+=xs[v];if(xs[v]>mxx)mxx=xs[v];}
+    setStage(3,"done",exact?"Verificado: x*·Δ_q = e exactamente":"Atención: el redondeo no reproduce e");
+    $("xinfo").textContent="𝟏·x* = "+fmt(sx)+", valor óptimo del programa (2.3). Máximo: "+fmt(mxx)+" disparos.";
+    if(n<=100){$("xmatrix").textContent=padMatrix(xs,n);$("xBox").hidden=false;}
+    render();ui.bar(1);
     const secs=(performance.now()-t0)/1000;
     $("msg").textContent="Listo: identidad de la rejilla "+n+" × "+n+" en "+(secs<10?secs.toFixed(2):secs.toFixed(1))+" s.";
     showStats(b,n);setDownloads(true);
@@ -279,16 +351,17 @@ function showStats(c,n){
   let total=0;for(let v=0;v<N;v++)total+=c[v];
   $("sym").textContent="Total de granos: "+fmt(total)+" (densidad "+(total/N).toFixed(4)+"). "+(sym?"La matriz es invariante bajo las 8 simetrías del cuadrado.":"Atención: la matriz no resultó simétrica.");
   $("stats").hidden=false;
-  if(n<=40){$("matrix").textContent=matrixText(c,n," ");$("matrixBox").hidden=false;}
+  if(n<=100){$("matrix").textContent=padMatrix(c,n);$("matrixBox").hidden=false;}
 }
 function matrixText(c,n,sep){const rows=[];for(let i=0;i<n;i++){const r=new Array(n);for(let j=0;j<n;j++)r[j]=c[i*n+j];rows.push(r.join(sep));}return rows.join("\n")+"\n";}
 
 /* readout */
 function readout(e){
-  const c=result||liveC,n=result?resultN:liveN;if(!c)return;
+  const showX=view==="x"&&xstar;
+  const c=showX?xstar:(result||liveC),n=(showX||result)?resultN:liveN;if(!c)return;
   const r=cv.getBoundingClientRect();const j=Math.floor((e.clientX-r.left)/r.width*n),i=Math.floor((e.clientY-r.top)/r.height*n);
   if(i<0||j<0||i>=n||j>=n)return;
-  $("readout").innerHTML="Vértice (<strong>"+(i+1)+"</strong>, <strong>"+(j+1)+"</strong>): <strong>"+c[i*n+j]+"</strong> granos";
+  $("readout").innerHTML="Vértice (<strong>"+(i+1)+"</strong>, <strong>"+(j+1)+"</strong>): "+(showX?"x* = <strong>"+c[i*n+j]+"</strong>":"<strong>"+c[i*n+j]+"</strong> granos");
 }
 cv.addEventListener("pointermove",readout);cv.addEventListener("pointerdown",readout);
 
@@ -301,7 +374,7 @@ function getDownloads(){
   }
   return dlPromise;
 }
-getDownloads().then(d=>{if(d===null){["dlcsv","dltxt","dlpng","dlinvf","dlinvx"].forEach(id=>$(id).hidden=true);$("toast").textContent="Las descargas no están disponibles en esta vista.";}});
+getDownloads().then(d=>{if(d===null){["dlcsv","dltxt","dlpng","dlx","dlinvf","dlinvx"].forEach(id=>$(id).hidden=true);$("toast").textContent="Las descargas no están disponibles en esta vista.";}});
 async function offer(filename,data){
   const d=await getDownloads(); const t=$("toast");
   if(d===null){t.textContent="Las descargas no están disponibles en esta vista.";return;}
@@ -386,7 +459,8 @@ $("dlinvx").addEventListener("click",()=>invDownload("x"));
 updateInv(+nIn.value);
 
 /* redraw on theme change */
-matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{const c=result||liveC;if(c)draw(c,result?resultN:liveN);});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",render);
+$("dlx").addEventListener("click",()=>{if(xstar)offer("x_estrella_rejilla_n"+resultN+".csv",matrixText(xstar,resultN,","));});
 
 run();
 })();
