@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Editor Word Pro</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -244,6 +244,71 @@ input[type=range].ctrl{padding:0;height:30px}
 .mbtn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .mbtn-primary:hover{opacity:.88}
 
+/* ── Print / PDF styles ──────────────────────────────── */
+@media print {
+  body { background: white !important; overflow: visible !important; height: auto !important; }
+  header, aside, .toolbar, #print-modal-backdrop { display: none !important; }
+  .workspace { display: block !important; height: auto !important; overflow: visible !important; }
+  .content-area { display: block !important; height: auto !important; overflow: visible !important; }
+  .canvas-wrap { display: block !important; padding: 0 !important; overflow: visible !important; background: white !important; }
+  #editor {
+    box-shadow: none !important; max-width: 100% !important;
+    padding: var(--print-margin, 20mm) !important;
+    font-size: var(--print-font-size, 12pt) !important;
+    font-family: var(--print-font, 'Georgia, serif') !important;
+    color: #000 !important; background: white !important;
+    border-radius: 0 !important; min-height: unset !important;
+  }
+  #editor h1 { font-size: 22pt !important; }
+  #editor h2 { font-size: 17pt !important; }
+  #editor h3 { font-size: 13pt !important; }
+  #editor p  { font-size: var(--print-font-size, 12pt) !important; }
+  #editor img { max-width: 100% !important; page-break-inside: avoid; }
+  #editor table { page-break-inside: avoid; }
+  #editor blockquote { border-left: 3px solid #333 !important; background: #f5f5f5 !important; }
+  @page {
+    size: var(--print-page-size, A4) var(--print-orientation, portrait);
+    margin: var(--print-margin, 20mm);
+  }
+}
+
+/* PDF modal */
+#print-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  z-index: 200; display: none; align-items: center; justify-content: center;
+}
+#print-modal-backdrop.open { display: flex; }
+.print-modal {
+  background: var(--panel); border-radius: 10px; padding: 24px;
+  width: 100%; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,.2);
+}
+.print-modal h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.print-modal .subtitle { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+.pm-field { margin-bottom: 13px; }
+.pm-field label { display: block; font-size: 11.5px; color: var(--muted); font-weight: 500; margin-bottom: 5px; }
+.pm-field select, .pm-field input[type=range] {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); color: var(--text);
+  font-size: 13px; font-family: inherit; outline: none;
+}
+.pm-field select:focus { border-color: var(--accent); }
+.pm-row { display: flex; gap: 10px; }
+.pm-row .pm-field { flex: 1; }
+.pm-range-val { font-size: 11px; color: var(--muted); text-align: right; margin-top: 3px; }
+.pm-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+.pm-btn {
+  padding: 8px 16px; border-radius: var(--radius); font-size: 13px;
+  font-family: inherit; font-weight: 500; cursor: pointer; border: 1px solid var(--border);
+}
+.pm-btn-ghost { background: none; color: var(--text); }
+.pm-btn-ghost:hover { background: var(--bg); }
+.pm-btn-primary { background: var(--danger); color: #fff; border-color: var(--danger); }
+.pm-btn-primary:hover { opacity: .88; }
+.pm-preview-note {
+  font-size: 11px; color: var(--muted); margin-top: 14px; padding: 10px;
+  background: var(--bg); border-radius: var(--radius); line-height: 1.5;
+}
+
 @media(max-width:640px){
   :root{--sidebar-w:100%}
   .workspace{flex-direction:column}
@@ -292,15 +357,91 @@ input[type=range].ctrl{padding:0;height:30px}
 
   <button class="hdr-btn" id="btn-save-html" disabled>
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    Exportar HTML
+    HTML
+  </button>
+  <button class="hdr-btn" id="btn-save-pdf" disabled style="color:var(--danger)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15h1m4 0h1m-5 4h6"/><path d="M9 11h6"/></svg>
+    Exportar PDF
   </button>
   <button class="hdr-btn" id="btn-save-docx" disabled>
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    Guardar .docx
+    .docx
   </button>
 
   <input type="file" id="file-input" accept=".docx" style="display:none">
 </header>
+
+<!-- PDF export modal -->
+<div id="print-modal-backdrop">
+  <div class="print-modal">
+    <h2>Exportar como PDF</h2>
+    <p class="subtitle">Configura el documento antes de imprimir / guardar como PDF</p>
+
+    <div class="pm-row">
+      <div class="pm-field">
+        <label>Tamaño de página</label>
+        <select id="pm-page-size">
+          <option value="A4">A4 (210×297mm)</option>
+          <option value="letter">Carta (216×279mm)</option>
+          <option value="A3">A3 (297×420mm)</option>
+          <option value="legal">Legal (216×356mm)</option>
+        </select>
+      </div>
+      <div class="pm-field">
+        <label>Orientación</label>
+        <select id="pm-orientation">
+          <option value="portrait">Vertical</option>
+          <option value="landscape">Horizontal</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="pm-field">
+      <label>Márgenes</label>
+      <select id="pm-margins">
+        <option value="10mm">Estrecho (10mm)</option>
+        <option value="20mm" selected>Normal (20mm)</option>
+        <option value="25mm">Amplio (25mm)</option>
+        <option value="30mm">Muy amplio (30mm)</option>
+      </select>
+    </div>
+
+    <div class="pm-row">
+      <div class="pm-field">
+        <label>Fuente</label>
+        <select id="pm-font">
+          <option value="Georgia, serif">Georgia (Serif)</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+          <option value="Arial, sans-serif">Arial (Sans)</option>
+          <option value="'Inter', sans-serif">Inter (Sans)</option>
+          <option value="'Courier New', monospace">Courier New (Mono)</option>
+        </select>
+      </div>
+      <div class="pm-field">
+        <label>Tamaño de texto</label>
+        <select id="pm-fontsize">
+          <option value="10pt">10pt</option>
+          <option value="11pt">11pt</option>
+          <option value="12pt" selected>12pt</option>
+          <option value="13pt">13pt</option>
+          <option value="14pt">14pt</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="pm-preview-note">
+      💡 Al hacer clic en <strong>Imprimir / Guardar PDF</strong>, se abrirá el diálogo de impresión del navegador. Selecciona <em>"Guardar como PDF"</em> como destino para obtener el archivo PDF.
+    </div>
+
+    <div class="pm-actions">
+      <button class="pm-btn pm-btn-ghost" id="pm-cancel">Cancelar</button>
+      <button class="pm-btn pm-btn-primary" id="pm-print">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:5px"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Imprimir / Guardar PDF
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Workspace ─── -->
 <div class="workspace">
@@ -491,6 +632,15 @@ input[type=range].ctrl{padding:0;height:30px}
 </div>
 
 <script>
+// ══ Native saveAs (no FileSaver needed) ══════════════════════════════
+function saveAs(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
 // ══ Helpers ══════════════════════════════════════════════════════════
 const $  = id => document.getElementById(id);
 const ed = $('editor');
@@ -551,6 +701,7 @@ function loadDocx(file) {
       $('file-badge').classList.add('on');
       $('btn-save-html').disabled = false;
       $('btn-save-docx').disabled = false;
+      $('btn-save-pdf').disabled = false;
       refreshImgList();
       updateStats();
       pushHistory();
@@ -703,6 +854,7 @@ $('img-input').addEventListener('change', function() {
     pushHistory();
     $('btn-save-html').disabled = false;
     $('btn-save-docx').disabled = false;
+    $('btn-save-pdf').disabled = false;
     toast('Imagen insertada', 'ok');
   };
   r.readAsDataURL(file);
@@ -810,11 +962,63 @@ ${table ? `<p></p>
   $('file-badge').classList.add('on');
   $('btn-save-html').disabled = false;
   $('btn-save-docx').disabled = false;
+  $('btn-save-pdf').disabled = false;
   closeModal('modal-new');
   refreshImgList();
   updateStats();
   pushHistory();
   toast('Documento creado', 'ok');
+});
+
+// ══ Export PDF ════════════════════════════════════════════════════════
+$('btn-save-pdf').addEventListener('click', () => {
+  $('print-modal-backdrop').classList.add('open');
+});
+
+$('pm-cancel').addEventListener('click', () => {
+  $('print-modal-backdrop').classList.remove('open');
+});
+
+$('print-modal-backdrop').addEventListener('click', e => {
+  if (e.target === $('print-modal-backdrop')) $('print-modal-backdrop').classList.remove('open');
+});
+
+$('pm-print').addEventListener('click', () => {
+  const pageSize    = $('pm-page-size').value;
+  const orientation = $('pm-orientation').value;
+  const margins     = $('pm-margins').value;
+  const font        = $('pm-font').value;
+  const fontSize    = $('pm-fontsize').value;
+
+  // Inject print CSS variables into :root via a temporary style tag
+  const styleTag = document.createElement('style');
+  styleTag.id = 'print-vars';
+  styleTag.textContent = `
+    :root {
+      --print-page-size: ${pageSize};
+      --print-orientation: ${orientation};
+      --print-margin: ${margins};
+      --print-font: ${font};
+      --print-font-size: ${fontSize};
+    }
+    @page {
+      size: ${pageSize} ${orientation};
+      margin: ${margins};
+    }
+  `;
+  document.head.appendChild(styleTag);
+
+  $('print-modal-backdrop').classList.remove('open');
+
+  // Small delay to let modal close, then print
+  setTimeout(() => {
+    window.print();
+    // Remove temp style after print dialog closes
+    setTimeout(() => {
+      const s = document.getElementById('print-vars');
+      if (s) s.remove();
+    }, 1000);
+  }, 150);
 });
 
 // ══ Export HTML ═══════════════════════════════════════════════════════
@@ -847,14 +1051,6 @@ ${ed.innerHTML}
 $('btn-save-docx').addEventListener('click', () => saveAsDocx());
 
 async function saveAsDocx() {
-  const JSZIP = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
-  if (!window.JSZip) {
-    await new Promise((res, rej) => {
-      const s = document.createElement('script');
-      s.src = JSZIP; s.onload = res; s.onerror = rej;
-      document.head.appendChild(s);
-    });
-  }
 
   // Convert editor HTML to Open XML paragraphs (basic)
   function htmlToOxml() {
