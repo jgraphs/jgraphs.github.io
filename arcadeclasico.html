@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arcade Clásico</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --card: #1a1a26;
+    --border: #2a2a3e;
+    --accent: #7c3aed;
+    --accent2: #06b6d4;
+    --accent3: #f59e0b;
+    --accent4: #10b981;
+    --text: #f1f5f9;
+    --muted: #64748b;
+    --radius: 12px;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    text-align: center;
+    padding: 2rem 1rem 1rem;
+    background: linear-gradient(180deg, #1a0a2e 0%, transparent 100%);
+  }
+  header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 2px;
+  }
+  header p { color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; }
+
+  nav {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    flex-wrap: wrap;
+  }
+  nav button {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.5rem 1.2rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  nav button.active, nav button:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .game-container {
+    display: none;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 0 1rem 2rem;
+  }
+  .game-container.active { display: block; }
+
+  .game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .score-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .score-value { font-size: 1.4rem; font-weight: 700; color: var(--text); }
+
+  canvas {
+    display: block;
+    margin: 0 auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: #000;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-top: 1rem;
+    max-width: 200px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    text-align: center;
+    user-select: none;
+    -webkit-user-select: none;
+    active: transform scale(0.95);
+    transition: background 0.1s;
+  }
+  .btn:active { background: var(--accent); }
+  .btn.empty { background: transparent; border-color: transparent; cursor: default; }
+
+  .action-row {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .action-btn {
+    background: var(--accent);
+    border: none;
+    color: white;
+    padding: 0.6rem 1.5rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: opacity 0.2s;
+  }
+  .action-btn:hover { opacity: 0.85; }
+  .action-btn.secondary {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    gap: 0.5rem;
+  }
+  .overlay h2 { font-size: 1.5rem; font-weight: 700; }
+  .overlay p { color: var(--muted); font-size: 0.9rem; }
+  .canvas-wrap { position: relative; display: flex; justify-content: center; }
+
+  /* Tetris pieces colors */
+  .next-piece { margin-top: 0.5rem; text-align: center; }
+  .next-label { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.3rem; }
+
+  /* Snake special */
+  .snake-controls { max-width: 160px; }
+  .btn-rotate { grid-column: 2; }
+
+  /* Breakout */
+  .lives { display: flex; gap: 4px; }
+  .life { font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🕹 ARCADE CLÁSICO</h1>
+  <p>Juegos retro para disfrutar</p>
+</header>
+
+<nav>
+  <button class="active" onclick="showGame('tetris')">🟦 Tetris</button>
+  <button onclick="showGame('snake')">🐍 Snake</button>
+  <button onclick="showGame('breakout')">🧱 Breakout</button>
+  <button onclick="showGame('sokoban')">📦 Sokoban</button>
+</nav>
+
+<!-- TETRIS -->
+<div id="game-tetris" class="game-container active">
+  <div class="game-header">
+    <div>
+      <div class="score-label">Puntuación</div>
+      <div class="score-value" id="tetris-score">0</div>
+    </div>
+    <div style="text-align:center">
+      <div class="score-label">Nivel</div>
+      <div class="score-value" id="tetris-level">1</div>
+    </div>
+    <div style="text-align:right">
+      <div class="score-label">Líneas</div>
+      <div class="score-value" id="tetris-lines">0</div>
+    </div>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="tetris-canvas" width="240" height="480"></canvas>
+    <div class="overlay" id="tetris-overlay">
+      <h2>🟦 TETRIS</h2>
+      <p>Completa líneas para sumar puntos</p>
+      <button class="action-btn" onclick="startTetris()">Jugar</button>
+    </div>
+  </div>
+  <div class="controls">
+    <div class="btn empty"></div>
+    <div class="btn" ontouchstart="tetrisMove('up')" onmousedown="tetrisMove('up')">↑</div>
+    <div class="btn empty"></div>
+    <div class="btn" ontouchstart="tetrisMove('left')" onmousedown="tetrisMove('left')">←</div>
+    <div class="btn" ontouchstart="tetrisMove('down')" onmousedown="tetrisMove('down')">↓</div>
+    <div class="btn" ontouchstart="tetrisMove('right')" onmousedown="tetrisMove('right')">→</div>
+  </div>
+  <div class="action-row">
+    <button class="action-btn secondary" onclick="startTetris()">Reiniciar</button>
+  </div>
+</div>
+
+<!-- SNAKE -->
+<div id="game-snake" class="game-container">
+  <div class="game-header">
+    <div>
+      <div class="score-label">Puntuación</div>
+      <div class="score-value" id="snake-score">0</div>
+    </div>
+    <div style="text-align:right">
+      <div class="score-label">Récord</div>
+      <div class="score-value" id="snake-best">0</div>
+    </div>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="snake-canvas" width="320" height="320"></canvas>
+    <div class="overlay" id="snake-overlay">
+      <h2>🐍 SNAKE</h2>
+      <p>Come manzanas, evita las paredes</p>
+      <button class="action-btn" onclick="startSnake()">Jugar</button>
+    </div>
+  </div>
+  <div class="controls snake-controls">
+    <div class="btn empty"></div>
+    <div class="btn" ontouchstart="snakeDir(0,-1)" onmousedown="snakeDir(0,-1)">↑</div>
+    <div class="btn empty"></div>
+    <div class="btn" ontouchstart="snakeDir(-1,0)" onmousedown="snakeDir(-1,0)">←</div>
+    <div class="btn" ontouchstart="snakeDir(0,1)" onmousedown="snakeDir(0,1)">↓</div>
+    <div class="btn" ontouchstart="snakeDir(1,0)" onmousedown="snakeDir(1,0)">→</div>
+  </div>
+  <div class="action-row">
+    <button class="action-btn secondary" onclick="startSnake()">Reiniciar</button>
+  </div>
+</div>
+
+<!-- BREAKOUT -->
+<div id="game-breakout" class="game-container">
+  <div class="game-header">
+    <div>
+      <div class="score-label">Puntuación</div>
+      <div class="score-value" id="breakout-score">0</div>
+    </div>
+    <div style="text-align:center">
+      <div class="score-label">Vidas</div>
+      <div class="lives" id="breakout-lives">❤️❤️❤️</div>
+    </div>
+    <div style="text-align:right">
+      <div class="score-label">Nivel</div>
+      <div class="score-value" id="breakout-level">1</div>
+    </div>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="breakout-canvas" width="320" height="400"></canvas>
+    <div class="overlay" id="breakout-overlay">
+      <h2>🧱 BREAKOUT</h2>
+      <p>Destruye todos los bloques</p>
+      <button class="action-btn" onclick="startBreakout()">Jugar</button>
+    </div>
+  </div>
+  <div style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:center;">
+    <div class="btn" style="flex:1; max-width:120px; font-size:1.5rem"
+      ontouchstart="breakoutMove(-1)" ontouchend="breakoutStop()"
+      onmousedown="breakoutMove(-1)" onmouseup="breakoutStop()">◀</div>
+    <div class="btn" style="flex:1; max-width:120px; font-size:1.5rem"
+      ontouchstart="breakoutMove(1)" ontouchend="breakoutStop()"
+      onmousedown="breakoutMove(1)" onmouseup="breakoutStop()">▶</div>
+  </div>
+  <div class="action-row">
+    <button class="action-btn secondary" onclick="startBreakout()">Reiniciar</button>
+  </div>
+</div>
+
+<!-- SOKOBAN -->
+<div id="game-sokoban" class="game-container">
+  <div class="game-header">
+    <div>
+      <div class="score-label">Movimientos</div>
+      <div class="score-value" id="sokoban-moves">0</div>
+    </div>
+    <div style="text-align:center">
+      <div class="score-label">Nivel</div>
+      <div class="score-value" id="sokoban-level">1</div>
+    </div>
+    <div style="text-align:right">
+      <div class="score-label">Cajas</div>
+      <div class="score-value" id="sokoban-boxes">0</div>
+    </div>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="sokoban-canvas" width="320" height="320"></canvas>
+    <div class="overlay" id="sokoban-overlay">
+      <h2>📦 SOKOBAN</h2>
+      <p>Empuja las cajas a los objetivos</p>
+      <button class="action-btn" onclick="startSokoban()">Jugar</button>
+    </div>
+  </div>
+  <div class="controls">
+    <div class="btn empty"></div>
+    <div class="btn" ontouchstart="sokobanMove(0,-1)" onmousedown="sokobanMove(0,-1)">↑</div>
+    <div class="btn empty"></div>
+    <div class="btn" ontouchstart="sokobanMove(-1,0)" onmousedown="sokobanMove(-1,0)">←</div>
+    <div class="btn" ontouchstart="sokobanMove(0,1)" onmousedown="sokobanMove(0,1)">↓</div>
+    <div class="btn" ontouchstart="sokobanMove(1,0)" onmousedown="sokobanMove(1,0)">→</div>
+  </div>
+  <div class="action-row">
+    <button class="action-btn secondary" onclick="undoSokoban()">↩ Deshacer</button>
+    <button class="action-btn secondary" onclick="startSokoban()">Reiniciar</button>
+  </div>
+</div>
+
+<script>
+// ===================== UTILS =====================
+function showGame(id) {
+  document.querySelectorAll('.game-container').forEach(g => g.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('game-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ===================== TETRIS =====================
+const COLS = 12, ROWS = 20;
+const COLORS = ['#7c3aed','#06b6d4','#f59e0b','#10b981','#ef4444','#f97316','#ec4899'];
+const SHAPES = [
+  [[1,1,1,1]],
+  [[1,1],[1,1]],
+  [[0,1,0],[1,1,1]],
+  [[1,1,0],[0,1,1]],
+  [[0,1,1],[1,1,0]],
+  [[1,0,0],[1,1,1]],
+  [[0,0,1],[1,1,1]]
+];
+let tetrisGrid, tetrisPiece, tetrisNext, tetrisScore, tetrisLines, tetrisLevel, tetrisInterval, tetrisRunning;
+
+function createGrid() {
+  return Array.from({length: ROWS}, () => Array(COLS).fill(0));
+}
+
+function newPiece() {
+  const idx = Math.floor(Math.random() * SHAPES.length);
+  const shape = SHAPES[idx].map(r => [...r]);
+  return { shape, color: COLORS[idx], x: Math.floor(COLS/2) - Math.floor(shape[0].length/2), y: 0 };
+}
+
+function startTetris() {
+  tetrisGrid = createGrid();
+  tetrisScore = 0; tetrisLines = 0; tetrisLevel = 1;
+  tetrisPiece = newPiece();
+  tetrisNext = newPiece();
+  tetrisRunning = true;
+  document.getElementById('tetris-overlay').style.display = 'none';
+  updateTetrisUI();
+  clearInterval(tetrisInterval);
+  tetrisInterval = setInterval(tetrisTick, 600);
+}
+
+function tetrisTick() {
+  if (!canPlace(tetrisPiece, 0, 1)) {
+    placePiece();
+    clearLines();
+    tetrisPiece = tetrisNext;
+    tetrisNext = newPiece();
+    if (!canPlace(tetrisPiece, 0, 0)) {
+      gameOver('tetris');
+    }
+  } else {
+    tetrisPiece.y++;
+  }
+  drawTetris();
+}
+
+function canPlace(piece, dx, dy, shape) {
+  shape = shape || piece.shape;
+  for (let r = 0; r < shape.length; r++) {
+    for (let c = 0; c < shape[r].length; c++) {
+      if (!shape[r][c]) continue;
+      const nx = piece.x + c + dx, ny = piece.y + r + dy;
+      if (nx < 0 || nx >= COLS || ny >= ROWS) return false;
+      if (ny >= 0 && tetrisGrid[ny][nx]) return false;
+    }
+  }
+  return true;
+}
+
+function placePiece() {
+  for (let r = 0; r < tetrisPiece.shape.length; r++) {
+    for (let c = 0; c < tetrisPiece.shape[r].length; c++) {
+      if (tetrisPiece.shape[r][c]) {
+        tetrisGrid[tetrisPiece.y + r][tetrisPiece.x + c] = tetrisPiece.color;
+      }
+    }
+  }
+}
+
+function clearLines() {
+  let cleared = 0;
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (tetrisGrid[r].every(c => c)) {
+      tetrisGrid.splice(r, 1);
+      tetrisGrid.unshift(Array(COLS).fill(0));
+      cleared++; r++;
+    }
+  }
+  if (cleared) {
+    tetrisLines += cleared;
+    tetrisScore += [0,100,300,500,800][cleared] * tetrisLevel;
+    tetrisLevel = Math.floor(tetrisLines / 10) + 1;
+    clearInterval(tetrisInterval);
+    tetrisInterval = setInterval(tetrisTick, Math.max(100, 600 - (tetrisLevel-1)*50));
+    updateTetrisUI();
+  }
+}
+
+function rotate(shape) {
+  return shape[0].map((_, c) => shape.map(r => r[c]).reverse());
+}
+
+function tetrisMove(dir) {
+  if (!tetrisRunning) return;
+  if (dir === 'left' && canPlace(tetrisPiece, -1, 0)) tetrisPiece.x--;
+  if (dir === 'right' && canPlace(tetrisPiece, 1, 0)) tetrisPiece.x++;
+  if (dir === 'down' && canPlace(tetrisPiece, 0, 1)) tetrisPiece.y++;
+  if (dir === 'up') {
+    const rot = rotate(tetrisPiece.shape);
+    if (canPlace(tetrisPiece, 0, 0, rot)) tetrisPiece.shape = rot;
+  }
+  drawTetris();
+}
+
+function updateTetrisUI() {
+  document.getElementById('tetris-score').textContent = tetrisScore;
+  document.getElementById('tetris-level').textContent = tetrisLevel;
+  document.getElementById('tetris-lines').textContent = tetrisLines;
+}
+
+function drawTetris() {
+  const canvas = document.getElementById('tetris-canvas');
+  const ctx = canvas.getContext('2d');
+  const CW = canvas.width / COLS;
+  const CH = canvas.height / ROWS;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Grid lines
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 0.5;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    ctx.strokeRect(c*CW, r*CH, CW, CH);
+  }
+  // Placed blocks
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    if (tetrisGrid[r][c]) {
+      drawBlock(ctx, c*CW, r*CH, CW, CH, tetrisGrid[r][c]);
+    }
+  }
+  // Ghost piece
+  let ghostY = tetrisPiece.y;
+  while (canPlace(tetrisPiece, 0, ghostY - tetrisPiece.y + 1)) ghostY++;
+  for (let r = 0; r < tetrisPiece.shape.length; r++) for (let c = 0; c < tetrisPiece.shape[r].length; c++) {
+    if (tetrisPiece.shape[r][c] && ghostY !== tetrisPiece.y) {
+      ctx.strokeStyle = tetrisPiece.color + '44';
+      ctx.lineWidth = 1;
+      ctx.strokeRect((tetrisPiece.x+c)*CW+1, (ghostY+r)*CH+1, CW-2, CH-2);
+    }
+  }
+  // Current piece
+  for (let r = 0; r < tetrisPiece.shape.length; r++) for (let c = 0; c < tetrisPiece.shape[r].length; c++) {
+    if (tetrisPiece.shape[r][c]) {
+      drawBlock(ctx, (tetrisPiece.x+c)*CW, (tetrisPiece.y+r)*CH, CW, CH, tetrisPiece.color);
+    }
+  }
+}
+
+function drawBlock(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x+1, y+1, w-2, h-2);
+  ctx.fillStyle = 'rgba(255,255,255,0.2)';
+  ctx.fillRect(x+1, y+1, w-2, 3);
+  ctx.fillRect(x+1, y+1, 3, h-2);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(x+1, y+h-4, w-2, 3);
+}
+
+// ===================== SNAKE =====================
+let snakeGrid = 20, snakeSize = 320/20;
+let snake, food, dir, nextDir, snakeScore, snakeBest = 0, snakeRunning, snakeLoop;
+
+function startSnake() {
+  snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+  dir = {x:1,y:0}; nextDir = {x:1,y:0};
+  snakeScore = 0;
+  snakeRunning = true;
+  placeFood();
+  document.getElementById('snake-overlay').style.display = 'none';
+  clearInterval(snakeLoop);
+  snakeLoop = setInterval(snakeTick, 150);
+  document.getElementById('snake-score').textContent = 0;
+}
+
+function placeFood() {
+  let pos;
+  do { pos = {x: Math.floor(Math.random()*snakeGrid), y: Math.floor(Math.random()*snakeGrid)}; }
+  while (snake.some(s => s.x===pos.x && s.y===pos.y));
+  food = pos;
+}
+
+function snakeDir(x,y) {
+  if (!snakeRunning) return;
+  if (x !== 0 && dir.x === 0) nextDir = {x,y};
+  if (y !== 0 && dir.y === 0) nextDir = {x,y};
+}
+
+function snakeTick() {
+  dir = nextDir;
+  const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+  if (head.x < 0 || head.x >= snakeGrid || head.y < 0 || head.y >= snakeGrid) { gameOver('snake'); return; }
+  if (snake.some(s => s.x===head.x && s.y===head.y)) { gameOver('snake'); return; }
+  snake.unshift(head);
+  if (head.x===food.x && head.y===food.y) {
+    snakeScore += 10;
+    if (snakeScore > snakeBest) snakeBest = snakeScore;
+    document.getElementById('snake-score').textContent = snakeScore;
+    document.getElementById('snake-best').textContent = snakeBest;
+    placeFood();
+  } else {
+    snake.pop();
+  }
+  drawSnake();
+}
+
+function drawSnake() {
+  const canvas = document.getElementById('snake-canvas');
+  const ctx = canvas.getContext('2d');
+  const sz = snakeSize;
+  ctx.fillStyle = '#050510';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Grid
+  ctx.strokeStyle = '#0d0d1f';
+  ctx.lineWidth = 0.5;
+  for (let i=0;i<snakeGrid;i++) for (let j=0;j<snakeGrid;j++) ctx.strokeRect(i*sz,j*sz,sz,sz);
+  // Food (pulsing apple)
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.arc(food.x*sz+sz/2, food.y*sz+sz/2, sz/2-2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#86efac';
+  ctx.fillRect(food.x*sz+sz/2, food.y*sz+1, 2, 4);
+  // Snake
+  snake.forEach((seg,i) => {
+    const t = 1 - i/snake.length;
+    ctx.fillStyle = i===0 ? '#06b6d4' : `hsl(${160+i*2}, 80%, ${30+t*25}%)`;
+    const pad = i===0?1:2;
+    ctx.beginPath();
+    ctx.roundRect(seg.x*sz+pad, seg.y*sz+pad, sz-pad*2, sz-pad*2, 3);
+    ctx.fill();
+    if (i===0) {
+      ctx.fillStyle = '#fff';
+      const ew = dir.x===0?1:2, eh = dir.y===0?1:2;
+      ctx.fillRect(seg.x*sz+sz/2+(dir.y)*3, seg.y*sz+sz/2-(dir.x)*3, ew, eh);
+      ctx.fillRect(seg.x*sz+sz/2-(dir.y)*3, seg.y*sz+sz/2+(dir.x)*3, ew, eh);
+    }
+  });
+}
+
+// ===================== BREAKOUT =====================
+let bPaddle, bBall, bBricks, bScore, bLives, bLevel, bPaddleDir, bRunning, bLoop;
+
+function startBreakout() {
+  bLevel = 1; bScore = 0; bLives = 3;
+  initBreakoutLevel();
+  document.getElementById('breakout-overlay').style.display = 'none';
+  document.getElementById('breakout-score').textContent = 0;
+  document.getElementById('breakout-level').textContent = 1;
+  document.getElementById('breakout-lives').textContent = '❤️❤️❤️';
+  clearInterval(bLoop);
+  bLoop = setInterval(breakoutTick, 16);
+}
+
+function initBreakoutLevel() {
+  const canvas = document.getElementById('breakout-canvas');
+  bPaddle = {x: canvas.width/2 - 40, y: canvas.height - 20, w: 80, h: 10, speed: 6};
+  bBall = {x: canvas.width/2, y: canvas.height - 40, vx: 3+bLevel*0.5, vy: -(3+bLevel*0.5), r: 7};
+  bBricks = [];
+  const rows = 4 + bLevel, cols = 8;
+  const bw = (canvas.width - 20) / cols, bh = 22;
+  const colors = ['#ef4444','#f97316','#f59e0b','#10b981','#06b6d4','#7c3aed'];
+  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
+    bBricks.push({x:10+c*bw, y:40+r*bh, w:bw-4, h:bh-4, color:colors[r%colors.length], alive:true});
+  }
+  bPaddleDir = 0;
+  bRunning = true;
+}
+
+function breakoutMove(dir) { bPaddleDir = dir; }
+function breakoutStop() { bPaddleDir = 0; }
+
+function breakoutTick() {
+  if (!bRunning) return;
+  const canvas = document.getElementById('breakout-canvas');
+  // Paddle
+  bPaddle.x += bPaddleDir * bPaddle.speed;
+  bPaddle.x = Math.max(0, Math.min(canvas.width - bPaddle.w, bPaddle.x));
+  // Ball
+  bBall.x += bBall.vx; bBall.y += bBall.vy;
+  if (bBall.x <= bBall.r || bBall.x >= canvas.width-bBall.r) bBall.vx *= -1;
+  if (bBall.y <= bBall.r) bBall.vy *= -1;
+  // Paddle collision
+  if (bBall.y+bBall.r >= bPaddle.y && bBall.y-bBall.r <= bPaddle.y+bPaddle.h &&
+      bBall.x >= bPaddle.x && bBall.x <= bPaddle.x+bPaddle.w) {
+    bBall.vy = -Math.abs(bBall.vy);
+    const hit = (bBall.x - (bPaddle.x+bPaddle.w/2)) / (bPaddle.w/2);
+    bBall.vx = hit * 5;
+  }
+  // Ball lost
+  if (bBall.y > canvas.height+20) {
+    bLives--;
+    document.getElementById('breakout-lives').textContent = '❤️'.repeat(bLives);
+    if (bLives <= 0) { gameOver('breakout'); return; }
+    bBall = {x: bPaddle.x+bPaddle.w/2, y: bPaddle.y-20, vx: 3, vy: -3, r: 7};
+  }
+  // Brick collision
+  bBricks.forEach(b => {
+    if (!b.alive) return;
+    if (bBall.x+bBall.r > b.x && bBall.x-bBall.r < b.x+b.w &&
+        bBall.y+bBall.r > b.y && bBall.y-bBall.r < b.y+b.h) {
+      b.alive = false;
+      bBall.vy *= -1;
+      bScore += 10 * bLevel;
+      document.getElementById('breakout-score').textContent = bScore;
+    }
+  });
+  if (bBricks.every(b => !b.alive)) {
+    bLevel++;
+    document.getElementById('breakout-level').textContent = bLevel;
+    initBreakoutLevel();
+  }
+  drawBreakout();
+}
+
+function drawBreakout() {
+  const canvas = document.getElementById('breakout-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#030308';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Bricks
+  bBricks.forEach(b => {
+    if (!b.alive) return;
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.roundRect(b.x, b.y, b.w, b.h, 3);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fillRect(b.x+2, b.y+2, b.w-4, 3);
+  });
+  // Paddle
+  const grad = ctx.createLinearGradient(bPaddle.x, 0, bPaddle.x+bPaddle.w, 0);
+  grad.addColorStop(0,'#7c3aed'); grad.addColorStop(1,'#06b6d4');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(bPaddle.x, bPaddle.y, bPaddle.w, bPaddle.h, 5);
+  ctx.fill();
+  // Ball
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(bBall.x, bBall.y, bBall.r, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.arc(bBall.x-2, bBall.y-2, bBall.r/3, 0, Math.PI*2);
+  ctx.fill();
+}
+
+// ===================== SOKOBAN =====================
+const SOKOBAN_LEVELS = [
+  // Level 1
+  ['#######','#.@ # #','# $   #','#   $ #','# .####','#######'],
+  // Level 2
+  ['########','#      #','# .$. $#','# $    #','## . ###','#    # #','# .$ # #','########'],
+  // Level 3
+  ['#####  ','#   ###','# $   #','### $ #','#.  $.#','# .####','#    # ','######'],
+];
+let sLevel, sMoves, sGrid, sPlayer, sHistory;
+
+const WALL='#', FLOOR=' ', GOAL='.', PLAYER='@', PLAYER_GOAL='+', BOX='$', BOX_GOAL='*';
+
+function parseSokoban(lvl) {
+  const layout = SOKOBAN_LEVELS[lvl];
+  const grid = layout.map(r => r.split(''));
+  let player;
+  for (let y=0;y<grid.length;y++) for (let x=0;x<grid[y].length;x++) {
+    if (grid[y][x]===PLAYER||grid[y][x]===PLAYER_GOAL) { player={x,y}; break; }
+  }
+  return {grid, player};
+}
+
+function startSokoban() {
+  sLevel = 0; sMoves = 0;
+  const {grid, player} = parseSokoban(sLevel);
+  sGrid = grid; sPlayer = player; sHistory = [];
+  document.getElementById('sokoban-overlay').style.display = 'none';
+  updateSokobanUI();
+  drawSokoban();
+}
+
+function updateSokobanUI() {
+  document.getElementById('sokoban-moves').textContent = sMoves;
+  document.getElementById('sokoban-level').textContent = sLevel+1;
+  let placed = 0, total = 0;
+  for (let y=0;y<sGrid.length;y++) for (let x=0;x<sGrid[y].length;x++) {
+    if (sGrid[y][x]===BOX||sGrid[y][x]===BOX_GOAL) total++;
+    if (sGrid[y][x]===BOX_GOAL) placed++;
+  }
+  document.getElementById('sokoban-boxes').textContent = placed+'/'+total;
+}
+
+function sokobanMove(dx, dy) {
+  if (!sGrid) return;
+  const nx = sPlayer.x+dx, ny = sPlayer.y+dy;
+  if (ny<0||ny>=sGrid.length||nx<0||nx>=sGrid[ny].length) return;
+  const dest = sGrid[ny][nx];
+  if (dest===WALL) return;
+  const snapshot = {grid: sGrid.map(r=>[...r]), player:{...sPlayer}};
+  if (dest===BOX||dest===BOX_GOAL) {
+    const bx = nx+dx, by = ny+dy;
+    if (by<0||by>=sGrid.length||bx<0||bx>=sGrid[by].length) return;
+    const bd = sGrid[by][bx];
+    if (bd===WALL||bd===BOX||bd===BOX_GOAL) return;
+    sGrid[by][bx] = (bd===GOAL||bd===PLAYER_GOAL) ? BOX_GOAL : BOX;
+    sGrid[ny][nx] = (dest===BOX_GOAL) ? GOAL : FLOOR;
+  }
+  const cur = sGrid[sPlayer.y][sPlayer.x];
+  sGrid[sPlayer.y][sPlayer.x] = (cur===PLAYER_GOAL) ? GOAL : FLOOR;
+  sGrid[ny][nx] = (sGrid[ny][nx]===GOAL) ? PLAYER_GOAL : PLAYER;
+  sPlayer = {x:nx, y:ny};
+  sMoves++;
+  sHistory.push(snapshot);
+  updateSokobanUI();
+  drawSokoban();
+  checkSokobanWin();
+}
+
+function undoSokoban() {
+  if (!sHistory||sHistory.length===0) return;
+  const snap = sHistory.pop();
+  sGrid = snap.grid; sPlayer = snap.player;
+  if (sMoves>0) sMoves--;
+  updateSokobanUI();
+  drawSokoban();
+}
+
+function checkSokobanWin() {
+  for (let y=0;y<sGrid.length;y++) for (let x=0;x<sGrid[y].length;x++) {
+    if (sGrid[y][x]===BOX) return;
+  }
+  setTimeout(() => {
+    sLevel = (sLevel+1) % SOKOBAN_LEVELS.length;
+    const {grid, player} = parseSokoban(sLevel);
+    sGrid = grid; sPlayer = player; sMoves = 0; sHistory = [];
+    updateSokobanUI();
+    drawSokoban();
+    alert('🎉 ¡Nivel completado! Siguiente nivel...');
+  }, 200);
+}
+
+function drawSokoban() {
+  const canvas = document.getElementById('sokoban-canvas');
+  const ctx = canvas.getContext('2d');
+  if (!sGrid) return;
+  const rows = sGrid.length;
+  const cols = Math.max(...sGrid.map(r=>r.length));
+  const sz = Math.min(canvas.width/cols, canvas.height/rows);
+  const offX = (canvas.width - cols*sz)/2;
+  const offY = (canvas.height - rows*sz)/2;
+  ctx.fillStyle = '#030308';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  for (let y=0;y<sGrid.length;y++) {
+    for (let x=0;x<sGrid[y].length;x++) {
+      const cell = sGrid[y][x];
+      const px = offX+x*sz, py = offY+y*sz;
+      if (cell===WALL) {
+        ctx.fillStyle = '#374151';
+        ctx.fillRect(px,py,sz,sz);
+        ctx.fillStyle = '#4b5563';
+        ctx.fillRect(px+1,py+1,sz-2,3);
+        ctx.fillRect(px+1,py+1,3,sz-2);
+      } else {
+        ctx.fillStyle = '#0d1117';
+        ctx.fillRect(px,py,sz,sz);
+        if (cell===GOAL||cell===PLAYER_GOAL||cell===BOX_GOAL) {
+          ctx.fillStyle = '#f59e0b22';
+          ctx.fillRect(px+2,py+2,sz-4,sz-4);
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(px+4,py+4,sz-8,sz-8);
+        }
+        if (cell===BOX||cell===BOX_GOAL) {
+          ctx.fillStyle = cell===BOX_GOAL ? '#92400e' : '#78350f';
+          ctx.beginPath();
+          ctx.roundRect(px+3,py+3,sz-6,sz-6,4);
+          ctx.fill();
+          ctx.fillStyle = cell===BOX_GOAL ? '#f59e0b' : '#d97706';
+          ctx.fillRect(px+sz/2-1,py+5,2,sz-10);
+          ctx.fillRect(px+5,py+sz/2-1,sz-10,2);
+        }
+        if (cell===PLAYER||cell===PLAYER_GOAL) {
+          ctx.fillStyle = '#06b6d4';
+          ctx.beginPath();
+          ctx.arc(px+sz/2, py+sz/2+2, sz/2-4, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle = '#67e8f9';
+          ctx.beginPath();
+          ctx.arc(px+sz/2, py+sz/2-3, sz/4, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+}
+
+// ===================== GAME OVER =====================
+function gameOver(game) {
+  if (game==='tetris') { tetrisRunning=false; clearInterval(tetrisInterval); }
+  if (game==='snake') { snakeRunning=false; clearInterval(snakeLoop); }
+  if (game==='breakout') { bRunning=false; clearInterval(bLoop); }
+  const overlay = document.getElementById(game+'-overlay');
+  overlay.innerHTML = `<h2>💀 Game Over</h2><p>¡Buen intento!</p><button class="action-btn" onclick="start${game.charAt(0).toUpperCase()+game.slice(1)}()">Jugar de nuevo</button>`;
+  overlay.style.display = 'flex';
+}
+
+// ===================== KEYBOARD =====================
+document.addEventListener('keydown', e => {
+  const active = document.querySelector('.game-container.active').id;
+  if (active==='game-tetris') {
+    if(e.key==='ArrowLeft') tetrisMove('left');
+    if(e.key==='ArrowRight') tetrisMove('right');
+    if(e.key==='ArrowDown') tetrisMove('down');
+    if(e.key==='ArrowUp') tetrisMove('up');
+  }
+  if (active==='game-snake') {
+    if(e.key==='ArrowLeft') snakeDir(-1,0);
+    if(e.key==='ArrowRight') snakeDir(1,0);
+    if(e.key==='ArrowUp') snakeDir(0,-1);
+    if(e.key==='ArrowDown') snakeDir(0,1);
+  }
+  if (active==='game-breakout') {
+    if(e.key==='ArrowLeft') {bPaddleDir=-1;}
+    if(e.key==='ArrowRight') {bPaddleDir=1;}
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight') {
+      document.addEventListener('keyup', e2 => { if(e2.key===e.key) bPaddleDir=0; }, {once:true});
+    }
+  }
+  if (active==='game-sokoban') {
+    if(e.key==='ArrowLeft') sokobanMove(-1,0);
+    if(e.key==='ArrowRight') sokobanMove(1,0);
+    if(e.key==='ArrowUp') sokobanMove(0,-1);
+    if(e.key==='ArrowDown') sokobanMove(0,1);
+    if(e.key==='z'||e.key==='Z') undoSokoban();
+  }
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) e.preventDefault();
+});
+
+// Initial draw for Tetris canvas
+(function() {
+  const canvas = document.getElementById('tetris-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,canvas.width,canvas.height);
+})();
+</script>
+</body>
+</html>
