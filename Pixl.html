@@ -100,7 +100,7 @@ body {
   box-shadow: 0 0 0 1px #555, 0 8px 32px rgba(0,0,0,.6);
 }
 #main-canvas { display:block; cursor:crosshair; }
-#overlay-canvas { position:absolute; top:0; left:0; pointer-events:none; }
+#overlay-canvas { position:absolute; top:0; left:0; pointer-events:auto; cursor:crosshair; }
 
 /* Checkerboard bg for transparency */
 .canvas-wrap::before {
@@ -356,7 +356,6 @@ input[type=number].adj-val { border:none; background:transparent; outline:none; 
     <div class="canvas-wrap" id="canvas-wrap" style="display:none">
       <canvas id="main-canvas"></canvas>
       <canvas id="overlay-canvas"></canvas>
-      <div id="crop-overlay"></div>
       <textarea id="text-input-overlay" placeholder="Texto…"></textarea>
     </div>
 
@@ -538,20 +537,23 @@ function saveAs(blob, name) {
 function clamp(v,mn,mx){ return Math.max(mn,Math.min(mx,v)); }
 
 function getCanvasCoord(e) {
-  const r = canvas.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  return { x: Math.round((clientX - r.left) / zoom), y: Math.round((clientY - r.top) / zoom) };
+  const r = overlay.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : (e.clientX ?? 0);
+  const clientY = e.touches ? e.touches[0].clientY : (e.clientY ?? 0);
+  return {
+    x: Math.round(clamp((clientX - r.left) / zoom, 0, imgW - 1)),
+    y: Math.round(clamp((clientY - r.top)  / zoom, 0, imgH - 1))
+  };
 }
 
 function setZoom(z) {
   zoom = clamp(z, 0.05, 10);
-  canvas.style.width = (imgW * zoom) + 'px';
-  canvas.style.height = (imgH * zoom) + 'px';
-  overlay.style.width = canvas.style.width;
-  overlay.style.height = canvas.style.height;
+  const ws = (imgW * zoom) + 'px';
+  const hs = (imgH * zoom) + 'px';
+  canvas.style.width  = ws; canvas.style.height  = hs;
+  overlay.style.width = ws; overlay.style.height = hs;
   document.getElementById('zoom-label').textContent = Math.round(zoom*100) + '%';
-  document.getElementById('info-zoom').textContent = 'Zoom: ' + Math.round(zoom*100) + '%';
+  document.getElementById('info-zoom').textContent  = 'Zoom: ' + Math.round(zoom*100) + '%';
 }
 
 function adjustZoom(delta) { setZoom(zoom + delta); }
@@ -608,6 +610,8 @@ function loadImageFile(file) {
     imgW = img.width; imgH = img.height;
     canvas.width = imgW; canvas.height = imgH;
     overlay.width = imgW; overlay.height = imgH;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, imgW, imgH);
     ctx.drawImage(img, 0, 0);
     URL.revokeObjectURL(url);
     hasImage = true;
@@ -667,12 +671,14 @@ tools.forEach(t => {
     document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('info-tool').textContent = 'Herramienta: ' + btn.dataset.tip?.split(' (')[0] || t;
-    canvas.style.cursor = {
+    const cur = {
       move:'grab', select:'crosshair', lasso:'crosshair', crop:'crosshair',
       brush:'crosshair', pencil:'crosshair', eraser:'cell', fill:'crosshair',
-      eyedrop:'eyedropper', text:'text', 'blur-tool':'crosshair',
+      eyedrop:'crosshair', text:'text', 'blur-tool':'crosshair',
       'zoom-in':'zoom-in','zoom-out':'zoom-out'
     }[t] || 'crosshair';
+    overlay.style.cursor = cur;
+    canvas.style.cursor  = cur;
     cancelCrop();
     cancelSel();
     commitText();
@@ -710,10 +716,11 @@ function onDown(e) {
 
   if(tool==='crop'){ startCrop(x,y); return; }
   if(tool==='select'){ startSel(x,y); return; }
-  if(tool==='move'){ panStart={x:e.clientX,y:e.clientY}; canvas.style.cursor='grabbing'; return; }
+  if(tool==='move'){ panStart={x:e.clientX,y:e.clientY}; overlay.style.cursor='grabbing'; return; }
   if(tool==='brush'||tool==='pencil'||tool==='eraser'||tool==='blur-tool'){
+    // Save state BEFORE the stroke so undo restores the pre-stroke state
+    pushHistory(tool==='eraser'?'Borrador':tool==='blur-tool'?'Desenfoque local':tool==='brush'?'Pincel':'Lápiz');
     ctx.beginPath(); ctx.moveTo(x,y);
-    pushHistory(tool==='eraser'?'Borrador':tool==='blur-tool'?'Desenfoque local':'Pincel');
   }
 }
 
@@ -723,9 +730,7 @@ function onMove(e) {
   updateInfoPos(x,y);
 
   if(tool==='move'&&panStart){
-    const wrap=document.getElementById('canvas-wrap');
     const area=document.getElementById('canvas-area');
-    // Update scroll
     area.scrollLeft -= (e.clientX-panStart.x);
     area.scrollTop  -= (e.clientY-panStart.y);
     panStart={x:e.clientX,y:e.clientY};
@@ -746,11 +751,18 @@ function onMove(e) {
     ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(x,y); ctx.stroke();
     ctx.globalAlpha = 1;
   } else if(tool==='eraser') {
-    ctx.globalCompositeOperation='destination-out';
-    ctx.strokeStyle='rgba(0,0,0,1)';
-    ctx.lineWidth=brushSize*2; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(x,y); ctx.stroke();
-    ctx.globalCompositeOperation='source-over';
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = bgColor;
+    ctx.lineWidth = brushSize * 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.restore();
   } else if(tool==='blur-tool') {
     applyLocalBlur(x,y,brushSize*1.5);
   }
@@ -760,7 +772,7 @@ function onMove(e) {
 
 function onUp(e) {
   isDrawing = false;
-  if(tool==='move') { canvas.style.cursor='grab'; panStart=null; }
+  if(tool==='move') { overlay.style.cursor='grab'; panStart=null; }
   if(tool==='crop'&&cropStart) finishCrop();
   if(tool==='select'&&selStart) finishSel();
   drawHistogram();
@@ -783,15 +795,20 @@ function onClick(e) {
 }
 
 // ══ CROP ══════════════════════════════════════════════════════════════
-function startCrop(x,y){ cropStart={x,y}; cropRect={x,y,w:0,h:0}; document.getElementById('crop-overlay').style.display='block'; }
+function startCrop(x,y){ cropStart={x,y}; cropRect={x,y,w:0,h:0}; }
 function updateCrop(x,y){
   if(!cropStart) return;
   const ox=Math.min(cropStart.x,x), oy=Math.min(cropStart.y,y);
   const ow=Math.abs(x-cropStart.x), oh=Math.abs(y-cropStart.y);
   cropRect={x:ox,y:oy,w:ow,h:oh};
-  const co=document.getElementById('crop-overlay');
-  co.style.left=(ox*zoom)+'px'; co.style.top=(oy*zoom)+'px';
-  co.style.width=(ow*zoom)+'px'; co.style.height=(oh*zoom)+'px';
+  // Draw on overlay canvas instead of DOM div (simpler, no z-index issues)
+  octx.clearRect(0,0,imgW,imgH);
+  octx.fillStyle='rgba(0,0,0,0.4)';
+  octx.fillRect(0,0,imgW,imgH);
+  octx.clearRect(ox,oy,ow,oh);
+  octx.strokeStyle='#fff'; octx.lineWidth=1/zoom; octx.setLineDash([4/zoom,4/zoom]);
+  octx.strokeRect(ox,oy,ow,oh);
+  octx.setLineDash([]);
 }
 function finishCrop(){
   cropStart=null;
@@ -800,7 +817,7 @@ function finishCrop(){
 }
 function cancelCrop(){
   cropRect=null; cropStart=null;
-  document.getElementById('crop-overlay').style.display='none';
+  octx.clearRect(0,0,imgW,imgH);
   document.getElementById('btn-apply-crop').style.display='none';
   document.getElementById('btn-cancel-crop').style.display='none';
 }
@@ -825,12 +842,12 @@ function updateSel(x,y){
   if(!selStart) return;
   selRect={x:Math.min(selStart.x,x),y:Math.min(selStart.y,y),w:Math.abs(x-selStart.x),h:Math.abs(y-selStart.y)};
   octx.clearRect(0,0,imgW,imgH);
-  octx.setLineDash([4,4]); octx.strokeStyle='#fff'; octx.lineWidth=1/zoom;
-  octx.strokeRect(selRect.x,selRect.y,selRect.w,selRect.h);
+  octx.setLineDash([4/zoom,4/zoom]); octx.strokeStyle='#fff'; octx.lineWidth=1/zoom;
+  octx.strokeRect(selRect.x+0.5/zoom,selRect.y+0.5/zoom,selRect.w,selRect.h);
   octx.setLineDash([]);
 }
 function finishSel(){ selStart=null; }
-function cancelSel(){ selRect=null; selStart=null; octx.clearRect(0,0,imgW,imgH); }
+function cancelSel(){ selRect=null; selStart=null; if(imgW) octx.clearRect(0,0,imgW,imgH); }
 function clearSelection(){
   if(!selRect) return;
   pushHistory('Borrar selección');
@@ -881,12 +898,16 @@ function placeTextInput(x,y){
   commitText();
   const inp=document.getElementById('text-input-overlay');
   inp.style.display='block';
-  inp.style.left=(x*zoom)+'px'; inp.style.top=(y*zoom)+'px';
+  // Position in screen pixels (canvas-wrap coordinates)
+  inp.style.left=(x*zoom)+'px';
+  inp.style.top=Math.max(0,(y*zoom - textSize*zoom))+'px';
   inp.style.fontSize=(textSize*zoom)+'px';
   inp.style.fontFamily=textFont;
   inp.style.fontWeight=textBold?'bold':'normal';
   inp.style.fontStyle=textItalic?'italic':'normal';
   inp.style.color=fgColor;
+  inp.style.minWidth='120px';
+  inp.style.maxWidth=(imgW*zoom - x*zoom)+'px';
   inp.value=''; inp.focus();
   textPos={x,y};
 }
